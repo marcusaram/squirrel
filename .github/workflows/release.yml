@@ -17,11 +17,11 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@v4
         with:
           platforms: arm64
       - name: Version from the tag
@@ -31,12 +31,12 @@ jobs:
         run: make release VERSION="$VERSION"
       - name: Packages for a new card
         run: make payload-linux VERSION="$VERSION"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: squirreld
           path: dist/squirreld-*.tar.gz
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: payload-linux
           path: |
@@ -50,11 +50,11 @@ jobs:
     needs: linux
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: payload-linux
           path: internal/makerui/payload
@@ -65,7 +65,7 @@ jobs:
           make payload-mac VERSION="$VERSION"
           make app-bundle maker-bin VERSION="$VERSION"
           cd dist && zip -q "squirrel-maker-$VERSION-macos.zip" squirrel-maker
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: maker
           path: |
@@ -79,11 +79,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: squirreld
           path: out
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: maker
           path: out

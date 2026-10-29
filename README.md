@@ -25,7 +25,7 @@ Squirrel is a replacement for [teslausb](https://github.com/marcone/teslausb), w
   - Raspberry Pi **Zero 2 W**: the usual choice, small, powered by the car through the same cable.
   - Raspberry Pi **4** or **5**: faster, and can keep the clips on a USB SSD.
   - Original Raspberry Pi **Zero W**: works, but slowly (one core, 2.4 GHz wifi only).
-  - Radxa **ROCK 4C+**.
+  - Radxa **ROCK 4C+**: fast (six cores), and can keep the clips on a USB SSD. Needs its own power next to the cable from the car.
 
   A Raspberry Pi 3 Model B or B+ cannot act as a USB drive and does not work.
 - **A good SD card** of 32 GB or more: A2 or V30, or one sold for dashcams ("High Endurance"). The car writes all the time.
@@ -48,7 +48,7 @@ Squirrel Maker also runs from the command line (`squirrel-maker`, on Windows `sq
 
 ### 2. Make the card
 
-Put the SD card in your Mac, open Squirrel Maker and follow the seven steps:
+Put the SD card in your computer, open Squirrel Maker and follow the seven steps:
 
 1. **Board**: which board the card is for.
 2. **Wifi**: your home network (for the NAS) and perhaps your phone's hotspot, and your country. A Pi Zero W only sees 2.4 GHz networks. Also the password for the Pi's own wifi, which it starts when it finds no known network (see [Wifi in the car](#wifi-in-the-car)).
@@ -141,11 +141,11 @@ The car's drive is disconnected meanwhile, nothing is deleted for space, and a r
 
 ### Updating
 
-Put the card in your Mac, open Squirrel Maker and choose **Update it** on the first page. It shows the Squirrel version on each card and puts this version on the one you pick. The board installs it at its next start; settings, wifi networks and kept clips stay.
+Put the card in your computer, open Squirrel Maker and choose **Update it** on the first page. It shows the Squirrel version on each card and puts this version on the one you pick. The board installs it at its next start; settings, wifi networks and kept clips stay.
 
 ## Troubleshooting
 
-**The LED flickers very fast after the first start.** The first start failed and will try again at the next start. Put the card in your Mac and open `squirrel/firstboot.log` on it (on a ROCK 4C+ the log is also put on the USB drive as `squirrel-firstboot.txt`). If the card was made with an older Squirrel Maker, update or remake it with the latest.
+**The LED flickers very fast after the first start.** The first start failed and will try again at the next start. Put the card in your computer and open `squirrel/firstboot.log` on it (on a ROCK 4C+ the log is also put on the USB drive as `squirrel-firstboot.txt`). If the card was made with an older Squirrel Maker, update or remake it with the latest.
 
 **The car does not see the drive.** Check that the cable goes to the board's data port (see [Connect it to the car](#3-connect-it-to-the-car)) and is a data cable, not a charging-only one. The Status page shows the USB state; "configured" means the car has the drive. After a cold start the car can take a minute to notice a new drive.
 

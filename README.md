@@ -194,7 +194,7 @@ The original Zero W gets 32-bit Raspberry Pi OS with an ARMv6 build of squirreld
 
 ### Radxa ROCK 4C+
 
-The ROCK 4C+ gets [Armbian](https://www.armbian.com/) (Debian trixie, minimal). There is no stable Armbian release for this board, only community builds; Squirrel Maker uses one that was checked. Armbian keeps everything on ext4, which macOS cannot write, so Squirrel Maker writes its files with `debugfs` (and checks with `e2fsck`) and asks for your password. At the end of the first start the board restarts once; the car then sees the drive. Ethernet stays with Armbian's own network setup; NetworkManager handles wifi and the hotspot. The USB device mode follows the [teslausb wiki](https://github.com/marcone/teslausb/wiki/Rock-Pi-4C-plus-Installation).
+The ROCK 4C+ gets [Armbian](https://www.armbian.com/) (Debian trixie, minimal). There is no stable Armbian release for this board, only community builds; Squirrel Maker uses one that was checked. Armbian keeps everything on ext4, which macOS and Windows cannot write, so Squirrel Maker writes its files itself, without mounting the card: it only touches a file system that is clean and uses ext4 features it knows, and reads everything back afterwards. Updating such a card asks for your password. At the end of the first start the board restarts once; the car then sees the drive. Ethernet stays with Armbian's own network setup; NetworkManager handles wifi and the hotspot. The USB device mode follows the [teslausb wiki](https://github.com/marcone/teslausb/wiki/Rock-Pi-4C-plus-Installation).
 
 ### Clips on a USB drive
 
@@ -229,7 +229,7 @@ make app          # dist/Squirrel Maker.app and its zip (Apple silicon and Intel
 make maker        # dist/squirrel-maker, the command line version
 ```
 
-`make app` and `make maker` build in two parts, which CI runs on different machines: `make payload-linux` (squirreld and the packages for the card, with Docker) and `make payload-mac` (see below), then `make app-bundle` or `make maker-bin` around them. They also build `debugfs` and `e2fsck` from the [e2fsprogs](https://e2fsprogs.sourceforge.net/) source (checksum checked) and fetch the packages a new card installs at its first start, so that the first start needs no internet.
+`make app` and `make maker` build in two steps, which CI runs on different machines: `make payload` (squirreld, and the packages a new card installs at its first start, fetched with Docker so that the first start needs no internet), then `make app-bundle` or `make maker-bin` around it.
 
 To run squirreld on your computer against a demo image with fake footage from six cameras:
 

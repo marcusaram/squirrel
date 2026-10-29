@@ -30,7 +30,7 @@ jobs:
       - name: squirreld archives
         run: make release VERSION="$VERSION"
       - name: Packages for a new card
-        run: make payload-linux VERSION="$VERSION"
+        run: make payload VERSION="$VERSION"
       - uses: actions/upload-artifact@v4
         with:
           name: squirreld
@@ -38,14 +38,14 @@ jobs:
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
-          name: payload-linux
+          name: payload
           path: |
             internal/makerui/payload/files
             internal/makerui/payload/files-armv6
             internal/makerui/payload/armbian
           if-no-files-found: error
 
-  # What needs a Mac: e2fsprogs for the ROCK 4C+ card, and the app.
+  # What needs a Mac: the app.
   macos:
     needs: linux
     runs-on: macos-latest
@@ -56,13 +56,12 @@ jobs:
           go-version-file: go.mod
       - uses: actions/download-artifact@v4
         with:
-          name: payload-linux
+          name: payload
           path: internal/makerui/payload
       - name: Version from the tag
         run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
       - name: Squirrel Maker
         run: |
-          make payload-mac VERSION="$VERSION"
           make app-bundle maker-bin VERSION="$VERSION"
           cd dist && zip -q "squirrel-maker-$VERSION-macos.zip" squirrel-maker
       - uses: actions/upload-artifact@v4

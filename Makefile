@@ -34,9 +34,9 @@ test:
 .PHONY: test-linux
 test-linux:
 	mkdir -p dist/test
-	for p in fatfs preserve gadget archive driveimage nbd; do GOOS=linux go test -c -o dist/test/$$p.test ./internal/$$p; done
+	for p in fatfs preserve gadget archive driveimage nbd ext4; do GOOS=linux go test -c -o dist/test/$$p.test ./internal/$$p; done
 	docker run --rm --privileged -v "$(CURDIR):/src:ro" debian:trixie-slim sh -c '\
-		apt-get update -qq >/dev/null && apt-get install -y -qq xfsprogs exfatprogs >/dev/null 2>&1; \
+		apt-get update -qq >/dev/null && apt-get install -y -qq xfsprogs exfatprogs e2fsprogs >/dev/null 2>&1; \
 		truncate -s 1G /x.img && mkfs.xfs -q /x.img && mkdir /xfs && mount -o loop /x.img /xfs && \
 		cd /src/internal/fatfs && /src/dist/test/fatfs.test && \
 		cd /src/internal/gadget && /src/dist/test/gadget.test -test.v -test.run Mounted && \
@@ -44,7 +44,8 @@ test-linux:
 		cd /src/internal/driveimage && /src/dist/test/driveimage.test -test.v && \
 		cd /src/internal/preserve && TBX_TEST_DIR=/xfs TBX_EXPECT_REFLINK=1 /src/dist/test/preserve.test -test.v && \
 		for i in 0 1 2 3; do [ -e /dev/nbd$$i ] || mknod /dev/nbd$$i b 43 $$((i*32)); done && \
-		cd /src/internal/nbd && /src/dist/test/nbd.test -test.v'
+		cd /src/internal/nbd && /src/dist/test/nbd.test -test.v && \
+		cd /src/internal/ext4 && /src/dist/test/ext4.test -test.v'
 
 # Validates the generated cloud-init files against a real Raspberry Pi OS
 # image (uncompressed .img), e.g. PIOS_IMG=~/Downloads/2026-10-06-raspios-trixie-arm64-lite.img
@@ -72,8 +73,6 @@ testimages:
 #    xfsprogs, exfatprogs and their dependencies, worked out against the
 #    package list of the pinned Armbian image (deploy/armbian/dpkg-status),
 #    the USB overlay and the unit.
-#  - mac/: debugfs and e2fsck, which the app uses to put files on
-#    Armbian's ext4 root; built from e2fsprogs for Apple silicon and Intel.
 PAYLOAD := internal/makerui/payload
 XFS_DEBS := xfsprogs libinih1 liburcu8t64 python3-dbus
 # download fetches packages into the current directory in a container,
@@ -86,16 +85,11 @@ download = ok=; for i in 1 2 3; do rm -f ./*.deb; apt-get update -qq >/dev/null 
 	for p in $(foreach p,$(1),$(firstword $(subst :, ,$(p)))); do \
 	ls "$${p}"_*.deb >/dev/null 2>&1 || { echo "$${p} missing" >&2; exit 1; }; done; ls
 ARMBIAN_PKGS := network-manager dnsmasq-base xfsprogs exfatprogs rfkill
-E2FS_VERSION := 1.47.4
-E2FS_SHA256 := fd5bf388cbdbe006a3d3b318d983b2948382440acc85a87f1e7d108653e8db0b
-E2FS := dist/e2fsprogs-$(E2FS_VERSION)
 
-# payload is built in two parts: what needs Docker (payload-linux) and what
-# needs a Mac (payload-mac). CI builds them on different machines.
-.PHONY: payload payload-linux payload-mac
-payload: payload-linux payload-mac
-
-payload-linux: dist/squirreld-linux-arm64 dist/squirreld-linux-armv6
+# payload needs Docker; CI builds it on Linux and the Mac app around it on
+# a Mac.
+.PHONY: payload
+payload: dist/squirreld-linux-arm64 dist/squirreld-linux-armv6
 	rm -rf $(PAYLOAD)/files $(PAYLOAD)/files-armv6 $(PAYLOAD)/armbian
 	mkdir -p $(PAYLOAD)/files/debs $(PAYLOAD)/files-armv6/debs $(PAYLOAD)/armbian/debs
 	cp dist/squirreld-linux-arm64 $(PAYLOAD)/files/squirreld
@@ -117,28 +111,6 @@ payload-linux: dist/squirreld-linux-arm64 dist/squirreld-linux-armv6
 		cp /status /var/lib/dpkg/status; mkdir -p /tmp/a/partial; \
 		apt-get install -qq -y --download-only --no-install-recommends -o Dir::Cache::archives=/tmp/a $(ARMBIAN_PKGS) >/dev/null; \
 		cp /tmp/a/*.deb /out/ && ls /out'
-
-payload-mac: $(E2FS)/debugfs
-	rm -rf $(PAYLOAD)/mac && mkdir -p $(PAYLOAD)/mac
-	cp $(E2FS)/debugfs $(E2FS)/e2fsck $(PAYLOAD)/mac/
-
-# One rule for both tools (with two targets, make -j would run it twice
-# at once); e2fsck is made alongside debugfs.
-$(E2FS)/debugfs:
-	rm -rf $(E2FS) && mkdir -p $(E2FS)
-	curl -sfL -o $(E2FS)/src.tar.xz https://mirrors.edge.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v$(E2FS_VERSION)/e2fsprogs-$(E2FS_VERSION).tar.xz
-	echo "$(E2FS_SHA256)  $(E2FS)/src.tar.xz" | shasum -a 256 -c -
-	tar xf $(E2FS)/src.tar.xz -C $(E2FS)
-	for a in arm64 x86_64; do \
-		mkdir -p $(E2FS)/build-$$a && cd $(E2FS)/build-$$a && \
-		CFLAGS="-arch $$a -O2 -mmacosx-version-min=13.0" LDFLAGS="-arch $$a -mmacosx-version-min=13.0" \
-			../e2fsprogs-$(E2FS_VERSION)/configure --host=$$a-apple-darwin --disable-nls --disable-fuse2fs \
-			--disable-defrag --disable-imager --disable-e2initrd-helper --disable-uuidd > configure.log && \
-		$(MAKE) -s libs > make.log && $(MAKE) -s -C debugfs debugfs >> make.log && $(MAKE) -s -C e2fsck e2fsck >> make.log && \
-		cd $(CURDIR) || exit 1; \
-	done
-	lipo -create $(E2FS)/build-arm64/debugfs/debugfs $(E2FS)/build-x86_64/debugfs/debugfs -output $(E2FS)/debugfs
-	lipo -create $(E2FS)/build-arm64/e2fsck/e2fsck $(E2FS)/build-x86_64/e2fsck/e2fsck -output $(E2FS)/e2fsck
 
 # Squirrel Maker, the Mac app: its own window, Dock icon and menu, built
 # with Wails (cgo, so Xcode's command line tools). One binary for Apple
@@ -176,6 +148,6 @@ maker-bin:
 
 .PHONY: clean
 clean:
-	rm -rf dist $(PAYLOAD)/files $(PAYLOAD)/files-armv6 $(PAYLOAD)/armbian $(PAYLOAD)/mac
+	rm -rf dist $(PAYLOAD)/files $(PAYLOAD)/files-armv6 $(PAYLOAD)/armbian
 
 FORCE:

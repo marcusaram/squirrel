@@ -71,7 +71,7 @@ func TestUpdatePiBoot(t *testing.T) {
 	}
 }
 
-// Updates a card made from the real Armbian image, through /dev/fd/3 as
+// Updates a card made from the real Armbian image, through an open file as
 // on a real card. Opt-in like TestCustomizeRealArmbian.
 func TestUpdateRealArmbian(t *testing.T) {
 	src := os.Getenv("ARMBIAN_IMG")
@@ -79,7 +79,6 @@ func TestUpdateRealArmbian(t *testing.T) {
 		t.Skip("set ARMBIAN_IMG to the uncompressed Armbian image")
 	}
 	payload := os.DirFS("../makerui/payload")
-	tools := "../makerui/payload/mac"
 	img := filepath.Join(t.TempDir(), "a.img")
 	if out, err := exec.Command("cp", src, img).CombinedOutput(); err != nil {
 		t.Fatalf("copy: %v %s", err, out)
@@ -87,7 +86,7 @@ func TestUpdateRealArmbian(t *testing.T) {
 	s := testSettings()
 	s.Board = "rock4cplus"
 	ctx := context.Background()
-	if err := CustomizeArmbian(ctx, img, s, payload, tools, func(string, float64) {}); err != nil {
+	if err := CustomizeArmbian(ctx, img, s, payload, func(string, float64) {}); err != nil {
 		t.Fatal(err)
 	}
 	f, err := os.OpenFile(img, os.O_RDWR, 0)
@@ -95,30 +94,40 @@ func TestUpdateRealArmbian(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer f.Close()
-	d := debugfs{bin: filepath.Join(tools, "debugfs"), e2fsck: filepath.Join(tools, "e2fsck"), dev: f}
 	// As after a first start: done, and a package that is no longer bundled.
-	tmp := filepath.Join(t.TempDir(), "x")
-	os.WriteFile(tmp, nil, 0o644)
-	if _, err := d.tool(ctx, d.bin, "-w", "-R", "write "+tmp+" "+armbianDir+"/done"); err != nil {
+	r, err := openRoot(f)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := d.tool(ctx, d.bin, "-w", "-R", "write "+tmp+" "+armbianDir+"/debs/old_1.0_arm64.deb"); err != nil {
+	for _, p := range []string{armbianDir + "/done", armbianDir + "/debs/old_1.0_arm64.deb"} {
+		if err := r.fs.WriteFile(p, nil, 0o644, 0, 0); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := r.fs.Flush(); err != nil {
 		t.Fatal(err)
 	}
-	if info, err := inspectArmbian(ctx, d); err != nil || info.Pending {
+	if r, err = openRoot(f); err != nil {
+		t.Fatal(err)
+	}
+	if info, err := inspectArmbian(r); err != nil || info.Pending {
 		t.Fatalf("before: %+v %v", info, err)
 	}
-	if err := updateArmbian(ctx, d, payload, func(string, float64) {}); err != nil {
+	if err := updateArmbian(r, payload, func(string, float64) {}); err != nil {
 		t.Fatal(err)
 	}
-	info, err := inspectArmbian(ctx, d)
+	fsckRoot(t, img)
+	if r, err = openRoot(f); err != nil {
+		t.Fatal(err)
+	}
+	info, err := inspectArmbian(r)
 	if err != nil || !info.Pending {
 		t.Errorf("after: %+v %v", info, err)
 	}
-	if d.exists(ctx, armbianDir+"/debs/old_1.0_arm64.deb") {
+	if r.exists(armbianDir + "/debs/old_1.0_arm64.deb") {
 		t.Error("old package left behind")
 	}
-	if !d.exists(ctx, armbianDir+"/setup.env") {
+	if !r.exists(armbianDir + "/setup.env") {
 		t.Error("settings removed")
 	}
 }

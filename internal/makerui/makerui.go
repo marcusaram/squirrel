@@ -343,39 +343,13 @@ func (a *Server) runBuild(ctx context.Context, s maker.Settings, report maker.Pr
 			err = maker.Customize(ctx, out, s, payload, report)
 		}
 	} else {
-		var tools string
-		if tools, err = a.tools(); err == nil {
-			err = maker.CustomizeArmbian(ctx, out, s, a.all, tools, report)
-		}
+		err = maker.CustomizeArmbian(ctx, out, s, a.all, report)
 	}
 	if err != nil {
 		os.Remove(out)
 		return "", err
 	}
 	return out, nil
-}
-
-// tools unpacks debugfs and e2fsck, which the app carries for Armbian's
-// ext4 root, into the cache.
-func (a *Server) tools() (string, error) {
-	dir := filepath.Join(a.cacheDir, "tools-"+a.opts.Version)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", err
-	}
-	for _, name := range []string{"debugfs", "e2fsck"} {
-		data, err := fs.ReadFile(a.all, "mac/"+name)
-		if err != nil {
-			return "", fmt.Errorf("this build of squirrel-maker lacks %s; build it with `make maker`", name)
-		}
-		tmp := filepath.Join(dir, name+".new")
-		if err := os.WriteFile(tmp, data, 0o755); err != nil {
-			return "", err
-		}
-		if err := os.Rename(tmp, filepath.Join(dir, name)); err != nil {
-			return "", err
-		}
-	}
-	return dir, nil
 }
 
 // releases lists the OS images for a board: the tested one, then newer
@@ -469,7 +443,7 @@ func (a *Server) updateCard(w http.ResponseWriter, r *http.Request) {
 	}
 	go func() {
 		report := func(step string, frac float64) { a.update(j, func(j *job) { j.Step, j.Frac = step, frac }) }
-		info, err := maker.UpdateCard(context.Background(), in.Disk, a.all, a.tools, report)
+		info, err := maker.UpdateCard(context.Background(), in.Disk, a.all, report)
 		a.update(j, func(j *job) {
 			j.Done = true
 			if err != nil {

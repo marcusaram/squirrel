@@ -147,9 +147,15 @@ maker-bin:
 	lipo -create -output dist/squirrel-maker dist/squirrel-maker-darwin-arm64 dist/squirrel-maker-darwin-amd64
 
 # Squirrel Maker for Windows (64-bit): the app (Wails, without cgo, so it
-# builds anywhere) and the command line version, in one zip. The app asks
-# for administrator rights when it starts; writing a card needs them.
+# builds anywhere) and the command line version, in one zip. Each gets a
+# Windows resource (go-winres, pinned in go.mod) with the squirrel icon,
+# a manifest and the version; the app's manifest asks for administrator
+# rights when it starts, which writing a card needs.
 WIN := dist/windows/Squirrel Maker
+# The file version must be numbers: 0.16.0 from v0.16.0-rc1, 0.0.0 from dev.
+WINVER = $(shell echo "$(VERSION)" | sed -E -e 's/^v?([0-9]+(\.[0-9]+){0,3}).*/\1/' -e t -e 's/.*/0.0.0/')
+WINRES = go tool go-winres simply --arch amd64 --icon cmd/squirrel-app/icon.png --product-name "Squirrel Maker" \
+	--product-version "$(VERSION)" --file-version "$(WINVER)" --copyright "Marcus Aram, MIT license"
 
 .PHONY: app-windows app-windows-bundle
 app-windows: payload
@@ -157,6 +163,10 @@ app-windows: payload
 
 app-windows-bundle:
 	rm -rf "$(WIN)" && mkdir -p "$(WIN)"
+	$(WINRES) --manifest gui --admin --file-description "Squirrel Maker" \
+		--original-filename "Squirrel Maker.exe" --out cmd/squirrel-app/rsrc
+	$(WINRES) --manifest cli --file-description "Squirrel Maker (command line)" \
+		--original-filename squirrel-maker.exe --out cmd/squirrel-maker/rsrc
 	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS) -H windowsgui" -o "$(WIN)/Squirrel Maker.exe" ./cmd/squirrel-app
 	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o "$(WIN)/squirrel-maker.exe" ./cmd/squirrel-maker
 	cp LICENSE THIRD_PARTY_NOTICES.md "$(WIN)/"

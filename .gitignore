@@ -4,3 +4,5 @@
 /.claude/
 /internal/makerui/payload/armbian/
 /internal/makerui/payload/files-armv6/
+# Windows resources, made by make app-windows
+*.syso

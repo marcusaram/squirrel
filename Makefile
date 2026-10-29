@@ -36,7 +36,7 @@ test-linux:
 	mkdir -p dist/test
 	for p in fatfs preserve gadget archive driveimage nbd ext4; do GOOS=linux go test -c -o dist/test/$$p.test ./internal/$$p; done
 	docker run --rm --privileged -v "$(CURDIR):/src:ro" debian:trixie-slim sh -c '\
-		apt-get update -qq >/dev/null && apt-get install -y -qq xfsprogs exfatprogs e2fsprogs >/dev/null 2>&1; \
+		apt-get update -qq >/dev/null && apt-get install -y -qq xfsprogs exfatprogs e2fsprogs dosfstools >/dev/null 2>&1; \
 		truncate -s 1G /x.img && mkfs.xfs -q /x.img && mkdir /xfs && mount -o loop /x.img /xfs && \
 		cd /src/internal/fatfs && /src/dist/test/fatfs.test && \
 		cd /src/internal/gadget && /src/dist/test/gadget.test -test.v -test.run Mounted && \

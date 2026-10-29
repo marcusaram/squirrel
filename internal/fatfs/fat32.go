@@ -43,6 +43,13 @@ func openFAT32(r io.ReaderAt, off, size int64, bs []byte) (*Volume, error) {
 		rootCluster:  binary.LittleEndian.Uint32(bs[44:]),
 		eoc:          0x0FFFFFF7,
 	}
+	v.fatStart, v.fatSize, v.numFATs = v.fatOffset, fatsz*bps, nfats
+	if fi := int64(binary.LittleEndian.Uint16(bs[48:])); fi > 0 && fi < rsvd {
+		sig := make([]byte, 4)
+		if _, err := r.ReadAt(sig, off+fi*bps); err == nil && binary.LittleEndian.Uint32(sig) == 0x41615252 {
+			v.fsInfo = off + fi*bps
+		}
+	}
 	if ext := binary.LittleEndian.Uint16(bs[40:]); ext&0x80 != 0 {
 		// FAT mirroring disabled; use the active FAT
 		v.fatOffset += int64(ext&0x0F) * fatsz * bps

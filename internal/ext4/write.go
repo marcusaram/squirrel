@@ -822,7 +822,8 @@ func (f *FS) Remove(p string) error {
 }
 
 // Flush brings the checksums of the changed groups and the superblock up
-// to date and writes every changed block.
+// to date and writes every changed block, in no particular order; when a
+// write fails, the blocks written before it stay written.
 func (f *FS) Flush() error {
 	for g := range f.touched {
 		d, n, err := f.desc(g)

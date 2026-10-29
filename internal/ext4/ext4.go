@@ -4,8 +4,10 @@
 // directories and symlinks), for the features that root has.
 //
 // It reads and writes whole blocks only, which raw disks require, and
-// keeps every change in memory until Flush, so an error halfway leaves
-// the file system as it was. It refuses a file system it does not fully
+// keeps every change in memory until Flush, so an error before Flush
+// leaves the file system as it was. Flush writes the changed blocks in no
+// particular order: if a write fails or is interrupted, part of the
+// change can be on disk. It refuses a file system it does not fully
 // understand (an unknown feature) or that is not clean (a journal to
 // replay, errors, orphans), rather than guess.
 package ext4

@@ -126,18 +126,23 @@ func checkDisk(ctx context.Context, id string) (Disk, error) {
 		if err := diskOK(d); err != nil {
 			return Disk{}, fmt.Errorf("%s %w", id, err)
 		}
-		name := d.Name
-		if parts, err := partitions(ctx, n); err == nil {
-			for _, p := range parts {
-				if p.Label != "" {
-					name = p.Label + ", " + name
-					break
-				}
-			}
-		}
-		return Disk{ID: id, Name: name, Size: d.Size, Protocol: d.Bus}, nil
+		return toDisk(ctx, d), nil
 	}
 	return Disk{}, fmt.Errorf("%s not found", id)
+}
+
+// toDisk names a disk after its first labelled partition, if it has one.
+func toDisk(ctx context.Context, d winDisk) Disk {
+	name := d.Name
+	if parts, err := partitions(ctx, d.Number); err == nil {
+		for _, p := range parts {
+			if p.Label != "" {
+				name = p.Label + ", " + name
+				break
+			}
+		}
+	}
+	return Disk{ID: fmt.Sprintf("PhysicalDrive%d", d.Number), Name: name, Size: d.Size, Protocol: d.Bus}
 }
 
 func diskOK(d winDisk) error {
@@ -165,9 +170,7 @@ func ListDisks(ctx context.Context) ([]Disk, error) {
 	var out []Disk
 	for _, d := range disks {
 		if diskOK(d) == nil {
-			if disk, err := checkDisk(ctx, fmt.Sprintf("PhysicalDrive%d", d.Number)); err == nil {
-				out = append(out, disk)
-			}
+			out = append(out, toDisk(ctx, d))
 		}
 	}
 	return out, nil

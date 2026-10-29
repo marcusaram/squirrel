@@ -13,7 +13,6 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
-	"os/exec"
 	"os/user"
 	"path/filepath"
 	"regexp"
@@ -480,12 +479,7 @@ func (a *Server) reveal(w http.ResponseWriter, r *http.Request) {
 	image := a.image
 	a.mu.Unlock()
 	if image != "" {
-		// Finder or Explorer shows the image selected.
-		if runtime.GOOS == "windows" {
-			exec.Command("explorer", "/select,"+image).Run()
-		} else {
-			exec.Command("open", "-R", image).Run()
-		}
+		revealFile(image) // Finder or Explorer shows the image selected
 	}
 	writeJSON(w, map[string]bool{"ok": true})
 }

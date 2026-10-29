@@ -12,8 +12,14 @@ import (
 
 const chunk = 4 << 20
 
-// WriteRaw copies image onto an opened raw disk and reads it back to
-// compare. Writes are kept in whole 512 byte sectors.
+// headLast is how much of the start of the image (the partition table and
+// what follows) is written last: until then the card has no partitions a
+// computer would try to mount while the rest is written.
+const headLast = 1 << 20
+
+// WriteRaw copies image onto an opened raw disk, the first megabyte last,
+// and reads it back to compare. Writes are kept in whole 512 byte sectors
+// at sector offsets, which raw disks on macOS and Windows require.
 func WriteRaw(image string, out *os.File, report Progress) error {
 	device := out.Name()
 	in, err := os.Open(image)
@@ -26,44 +32,54 @@ func WriteRaw(image string, out *os.File, report Progress) error {
 		return err
 	}
 	size := fi.Size()
-	want := sha256.New()
 	buf := make([]byte, chunk)
 	var done int64
-	for done < size {
-		n, err := io.ReadFull(in, buf)
-		if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, io.EOF) {
-			return err
+	write := func(from, to int64) error {
+		for at := from; at < to; {
+			n := min(int64(chunk), to-at)
+			m, err := in.ReadAt(buf[:n], at)
+			if err != nil && !errors.Is(err, io.EOF) {
+				return err
+			}
+			w := (int64(m) + 511) / 512 * 512
+			clear(buf[m:w])
+			if _, err := out.WriteAt(buf[:w], at); err != nil {
+				return fmt.Errorf("writing to %s: %w", device, err)
+			}
+			at += n
+			done += n
+			report("Writing the SD card", float64(done)/float64(size))
 		}
-		if n == 0 {
-			break
-		}
-		want.Write(buf[:n])
-		w := (n + 511) / 512 * 512
-		clear(buf[n:w])
-		if _, err := out.Write(buf[:w]); err != nil {
-			return fmt.Errorf("writing to %s: %w", device, err)
-		}
-		done += int64(n)
-		report("Writing the SD card", float64(done)/float64(size))
+		return nil
+	}
+	head := min(int64(headLast), size)
+	if err := write(head, size); err != nil {
+		return err
+	}
+	if err := write(0, head); err != nil {
+		return err
 	}
 	// Raw disk nodes on macOS are unbuffered and do not support fsync.
 	if err := out.Sync(); err != nil && !errors.Is(err, syscall.ENOTTY) {
 		return err
 	}
-	back := out
-	if _, err := back.Seek(0, io.SeekStart); err != nil {
-		return err
-	}
-	got := sha256.New()
+
+	want, got := sha256.New(), sha256.New()
+	cmp := make([]byte, chunk)
 	var read int64
 	for read < size {
-		w := min(int64(chunk), (size-read+511)/512*512)
-		n, err := io.ReadFull(back, buf[:w])
-		if err != nil && n == 0 {
+		n := min(int64(chunk), size-read)
+		w := (n + 511) / 512 * 512
+		if _, err := in.ReadAt(buf[:n], read); err != nil && !errors.Is(err, io.EOF) {
+			return err
+		}
+		m, err := out.ReadAt(cmp[:w], read)
+		if int64(m) < n {
 			return fmt.Errorf("reading back: %w", err)
 		}
-		got.Write(buf[:min(int64(n), size-read)])
-		read += int64(n)
+		want.Write(buf[:n])
+		got.Write(cmp[:n])
+		read += n
 		report("Verifying", float64(read)/float64(size))
 	}
 	if !bytes.Equal(got.Sum(nil), want.Sum(nil)) {

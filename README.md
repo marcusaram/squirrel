@@ -30,7 +30,7 @@ Squirrel is a replacement for [teslausb](https://github.com/marcone/teslausb), w
   A Raspberry Pi 3 Model B or B+ cannot act as a USB drive and does not work.
 - **A good SD card** of 32 GB or more: A2 or V30, or one sold for dashcams ("High Endurance"). The car writes all the time.
 - **A USB cable** from the car to the board's data port (see [Connecting to the car](#3-connect-it-to-the-car)).
-- **A Mac** (macOS 13 or later) to make the card with Squirrel Maker.
+- **A Mac** (macOS 13 or later) **or a Windows PC** (Windows 10 or 11, 64-bit) to make the card with Squirrel Maker, with a card reader.
 - Optional: **a NAS** with an SMB share (Synology, QNAP, a Windows share, Samba) for the clips to go to at home.
 
 Tesla puts speed, pedals, steering and position into every frame from firmware 2025.44.25 on, on HW3 and later. Older cars still record normally; the player then shows video only.
@@ -39,11 +39,12 @@ Tesla puts speed, pedals, steering and position into every frame from firmware 2
 
 ### 1. Get Squirrel Maker
 
-Squirrel Maker is the Mac app that makes the SD card. Download `Squirrel-Maker-<version>.zip` from the [releases](https://github.com/marcusaram/squirrel/releases), or build it yourself (see [Development](#development)).
+Squirrel Maker is the app that makes the SD card, for macOS and Windows. Download it from the [releases](https://github.com/marcusaram/squirrel/releases), or build it yourself (see [Development](#development)):
 
-The app is not signed with an Apple developer certificate. The first time, macOS says it cannot check the developer: open **System Settings → Privacy & Security** and choose **Open Anyway** below the message, or right-click the app and choose **Open**.
+- **macOS:** `Squirrel-Maker-<version>.zip`, with the app inside. It is not signed with an Apple developer certificate: the first time, macOS says it cannot check the developer. Open **System Settings → Privacy & Security** and choose **Open Anyway** below the message, or right-click the app and choose **Open**.
+- **Windows:** `Squirrel-Maker-<version>-windows.zip`. Unpack it and start `Squirrel Maker.exe`. It asks for administrator rights, which writing a card needs. It is not signed either: if Windows says it protected your PC, choose **More info** and then **Run anyway**. The app uses Microsoft Edge WebView2, which Windows 10 and 11 normally have.
 
-Squirrel Maker also runs from the command line (`squirrel-maker`), with the same steps in your browser.
+Squirrel Maker also runs from the command line (`squirrel-maker`, on Windows `squirrel-maker.exe` from a terminal opened as administrator), with the same steps in your browser.
 
 ### 2. Make the card
 
@@ -54,7 +55,7 @@ Put the SD card in your Mac, open Squirrel Maker and follow the seven steps:
 3. **Log in**: the Pi's name on the network (`squirrel` by default, so `http://squirrel.local/`), a user, and a password and/or your SSH key.
 4. **NAS and storage**: the NAS (optional, can be set later), how much of the card the car gets, and on a Pi 4, Pi 5 or ROCK 4C+ whether the clips go on a USB drive instead.
 5. **Build image**: downloads the operating system once (checked against its checksum), and puts Squirrel and your settings in it. By default it uses the release tested with Squirrel; newer ones are offered, marked as untested.
-6. **SD card**: pick the card. Only external disks and card readers are listed; your Mac asks for your password, and everything written is read back and checked.
+6. **SD card**: pick the card. Only external disks and card readers are listed, never the disk your computer runs from; your Mac asks for your password (Windows asked when the app started), and everything written is read back and checked.
 7. **Done**.
 
 The app remembers your answers for the next card, except passwords.
@@ -227,6 +228,7 @@ make build        # squirreld for arm64, armv7 and armv6
 make release      # squirreld archives with the install scripts
 make app          # dist/Squirrel Maker.app and its zip (Apple silicon and Intel)
 make maker        # dist/squirrel-maker, the command line version
+make app-windows  # dist/Squirrel-Maker-<version>-windows.zip: app and command line for Windows
 ```
 
 `make app` and `make maker` build in two steps, which CI runs on different machines: `make payload` (squirreld, and the packages a new card installs at its first start, fetched with Docker so that the first start needs no internet), then `make app-bundle` or `make maker-bin` around it.
@@ -276,6 +278,8 @@ The web interface and Squirrel Maker speak English and Dutch, following the brow
 Used in a car with a Raspberry Pi Zero 2 W: recording, keeping drives and events, the web interface and player, computer mode on a Mac, and updating a card with Squirrel Maker. Uploading to a NAS is tested against a real Samba server, including one that disappears mid-upload, but not yet from a car.
 
 Tested on a Pi Zero W: making the card, the first start and the web interface; not yet in a car.
+
+Squirrel Maker for Windows is tested on GitHub's Windows machines with a virtual disk as the card (listing, writing, inspecting and updating a Raspberry Pi card), not yet with a real card reader. How it changes a card's file systems (FAT32 for the Raspberry Pi, ext4 for the ROCK 4C+) is the same code on macOS and Windows, tested against fsck.fat, e2fsck and the Linux kernel.
 
 Tested in containers and with test images only, not yet on the hardware:
 

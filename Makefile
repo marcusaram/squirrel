@@ -146,6 +146,23 @@ maker-bin:
 	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o dist/squirrel-maker-darwin-amd64 ./cmd/squirrel-maker
 	lipo -create -output dist/squirrel-maker dist/squirrel-maker-darwin-arm64 dist/squirrel-maker-darwin-amd64
 
+# Squirrel Maker for Windows (64-bit): the app (Wails, without cgo, so it
+# builds anywhere) and the command line version, in one zip. The app asks
+# for administrator rights when it starts; writing a card needs them.
+WIN := dist/windows/Squirrel Maker
+
+.PHONY: app-windows app-windows-bundle
+app-windows: payload
+	$(MAKE) app-windows-bundle
+
+app-windows-bundle:
+	rm -rf "$(WIN)" && mkdir -p "$(WIN)"
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS) -H windowsgui" -o "$(WIN)/Squirrel Maker.exe" ./cmd/squirrel-app
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o "$(WIN)/squirrel-maker.exe" ./cmd/squirrel-maker
+	cp LICENSE THIRD_PARTY_NOTICES.md "$(WIN)/"
+	rm -f "dist/Squirrel-Maker-$(VERSION)-windows.zip"
+	cd dist/windows && zip -qr "../Squirrel-Maker-$(VERSION)-windows.zip" "Squirrel Maker"
+
 .PHONY: clean
 clean:
 	rm -rf dist $(PAYLOAD)/files $(PAYLOAD)/files-armv6 $(PAYLOAD)/armbian

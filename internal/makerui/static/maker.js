@@ -7,6 +7,7 @@ const form = $('#settings');
 // In the Mac app the page runs in a web view without confirm() or
 // alert(); the app's own dialogs answer instead.
 let NATIVE = false;
+let PLATFORM = '';
 
 async function ask(message, ok) {
   if (!NATIVE) return confirm(message);
@@ -105,6 +106,11 @@ function fill(s) {
     if (el.type === 'checkbox') el.checked = !!v;
     else if (el.type === 'radio') el.checked = el.value === (v || (a === 'board' ? 'rpi' : ''));
     else if (v != null) el.value = v;
+  }
+  // Where the computer could not tell the time zone by its IANA name
+  // (Windows), the browser can.
+  if (!form.elements.timezone.value) {
+    try { form.elements.timezone.value = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch {}
   }
   form.elements.usb_storage.checked = s.storage === 'usb';
   form.elements.sd_overclock.checked = !!s.sd_overclock;
@@ -213,7 +219,7 @@ form.addEventListener('submit', async e => {
       if (j && j.done && !j.error) {
         const p = document.createElement('p');
         p.className = 'result';
-        p.innerHTML = `${t('Image ready.')} <button type="button" class="link">${t('Show in Finder')}</button>`;
+        p.innerHTML = `${t('Image ready.')} <button type="button" class="link">${t(PLATFORM === 'windows' ? 'Show in Explorer' : 'Show in Finder')}</button>`;
         $('button', p).onclick = () => api('reveal', { method: 'POST' });
         box.append(p);
         built = true;
@@ -518,6 +524,7 @@ translatePage();
     const d = await api('defaults');
     // The Mac app quits with its menu (Cmd-Q), not from the page.
     NATIVE = !!d.native;
+    PLATFORM = d.platform || '';
     $('#quit').hidden = NATIVE;
     boards = d.boards || [];
     appVersion = d.version;

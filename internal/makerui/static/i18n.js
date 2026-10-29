@@ -84,7 +84,7 @@ const NL = {
   'Hide': 'Verberg',
   'May be empty if you use an SSH key.': 'Mag leeg als je een SSH-sleutel gebruikt.',
   'SSH key': 'SSH-sleutel',
-  "This Mac's public key is already filled in.": 'De publieke sleutel van deze Mac staat al ingevuld.',
+  "This computer's public key is already filled in.": 'De publieke sleutel van deze computer staat al ingevuld.',
   'Time zone': 'Tijdzone',
   'NAS and storage': 'NAS en opslag',
   'Once the car is home, the Pi uploads Sentry and saved clips to a shared folder on your NAS.':
@@ -100,8 +100,8 @@ const NL = {
   'Build the image': 'Image maken',
   'SD card': 'SD-kaart',
   'Put it on the SD card': 'Op de SD-kaart zetten',
-  'Insert the card in your Mac. Everything on it is erased. The car writes all the time, so the card matters most: take an A2 or V30 card of 32 GB or more, or one sold for dashcams (High Endurance).':
-    'Steek de kaart in je Mac. Alles wat erop staat wordt gewist. De auto schrijft de hele tijd, dus de kaart doet er het meest toe: neem een A2- of V30-kaart van 32 GB of meer, of een kaart voor dashcams (High Endurance).',
+  'Insert the card in your computer. Everything on it is erased. The car writes all the time, so the card matters most: take an A2 or V30 card of 32 GB or more, or one sold for dashcams (High Endurance).':
+    'Steek de kaart in je computer. Alles wat erop staat wordt gewist. De auto schrijft de hele tijd, dus de kaart doet er het meest toe: neem een A2- of V30-kaart van 32 GB of meer, of een kaart voor dashcams (High Endurance).',
   'Run the SD card faster (Zero W, Zero 2 W, Pi 3)': 'De SD-kaart sneller laten werken (Zero W, Zero 2 W, Pi 3)',
   'These boards drive the card at 50 MHz, about 20 MB/s: less than the car sends. This raises it to up to 100 MHz. That is beyond the SD card standard: a good A2 or V30 card usually copes, but a card that does not gives read and write errors and can lose recordings. Leave it off unless you want to try; Pi 4 and 5 do not need it.':
     'Deze boards sturen de kaart op 50 MHz aan, ongeveer 20 MB/s: minder dan de auto aanlevert. Dit verhoogt dat tot hooguit 100 MHz. Dat gaat buiten de SD-standaard: een goede A2- of V30-kaart kan het meestal aan, maar een kaart die het niet aankan geeft lees- en schrijffouten en kan opnames kwijtraken. Laat het uit tenzij je het wilt proberen; Pi 4 en 5 hebben het niet nodig.',
@@ -119,8 +119,8 @@ const NL = {
   'Go to': 'Ga naar',
   ', or join the wifi <b>Squirrel</b> if the Pi does not find your network.':
     ', of verbind met de wifi <b>Squirrel</b> als de Pi je netwerk niet vindt.',
-  'Not working? Put the card in your Mac: <code>squirrel/firstboot.log</code> tells where it stopped.':
-    'Lukt het niet? Steek de kaart in je Mac: <code>squirrel/firstboot.log</code> vertelt waar het stopte.',
+  'Not working? Put the card in your computer: <code>squirrel/firstboot.log</code> tells where it stopped.':
+    'Lukt het niet? Steek de kaart in je computer: <code>squirrel/firstboot.log</code> vertelt waar het stopte.',
   'Make another card': 'Nog een kaart maken',
   'Back': 'Vorige',
   'Next': 'Volgende',
@@ -131,6 +131,7 @@ const NL = {
   'enter the password again': 'wachtwoord opnieuw invullen',
   'Image ready.': 'Image klaar.',
   'Show in Finder': 'Toon in Finder',
+  'Show in Explorer': 'Toon in Verkenner',
   'Not started': 'Niet gestart',
   'No SD card found. Insert one and choose Search again.': 'Geen SD-kaart gevonden. Steek er een in en kies Opnieuw zoeken.',
   'Card': 'Kaart',
@@ -182,6 +183,7 @@ const NL = {
   'Writing the SD card': 'SD-kaart beschrijven',
   'Verifying': 'Controleren',
   'Ejecting the card': 'Kaart uitwerpen',
+  'Finishing': 'Afronden',
   'a task is already running': 'er loopt al een taak',
   'build the image first': 'maak eerst de image',
   'wait until the current task is done': 'wacht tot de huidige taak klaar is',
@@ -202,6 +204,8 @@ const NL = {
   'a wifi name must be 1 to 32 characters': 'een wifi-naam moet 1 tot 32 tekens hebben',
   'writing cards is only supported on macOS for now': 'kaarten schrijven kan voorlopig alleen op macOS',
   'adapting the image is only supported on macOS for now': 'de image aanpassen kan voorlopig alleen op macOS',
+  'writing to a card needs administrator rights; start Squirrel Maker as administrator':
+    'naar een kaart schrijven vraagt beheerdersrechten; start Squirrel Maker als administrator',
 };
 
 // Server messages with details filled in.
@@ -214,6 +218,8 @@ const NL_PATTERNS = [
   [/^(\S+) is not a whole disk$/, '$1 is geen hele schijf'],
   [/^(\S+) is an internal disk$/, '$1 is een interne schijf'],
   [/^(\S+) is not a physical disk$/, '$1 is geen fysieke schijf'],
+  [/^(\S+) is not a card or USB disk \((.*)\)$/, '$1 is geen kaart of USB-schijf ($2)'],
+  [/^(\S+) holds Windows$/, 'op $1 staat Windows'],
   [/^(\S+) is write-protected \(check the lock switch on the card\)$/, '$1 is beveiligd tegen schrijven (schuifje op de kaart?)'],
   [/^(\S+) is (\d+) GB; expected an SD card of 8 GB to 2 TB$/, '$1 is $2 GB; een SD-kaart van 8 GB tot 2 TB wordt verwacht'],
   [/^the image \((\d+) GB\) does not fit on (.+)$/, 'de image ($1 GB) past niet op $2'],

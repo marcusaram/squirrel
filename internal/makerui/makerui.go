@@ -17,6 +17,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -204,10 +205,8 @@ func (a *Server) defaults(w http.ResponseWriter, r *http.Request) {
 	// better than the language the Mac is set to.
 	if c := countryForTimezone(s.Timezone); c != "" {
 		s.Country = c
-	} else if out, err := exec.Command("defaults", "read", "-g", "AppleLocale").Output(); err == nil {
-		if _, c, ok := strings.Cut(strings.TrimSpace(string(out)), "_"); ok && len(c) >= 2 {
-			s.Country = strings.ToUpper(c[:2])
-		}
+	} else if c := systemCountry(); c != "" {
+		s.Country = c
 	}
 	if home, err := os.UserHomeDir(); err == nil {
 		for _, k := range []string{"id_ed25519.pub", "id_ecdsa.pub", "id_rsa.pub"} {
@@ -229,6 +228,7 @@ func (a *Server) defaults(w http.ResponseWriter, r *http.Request) {
 		"payload_ok": payloadErr == nil,
 		"version":    a.opts.Version,
 		"native":     a.opts.Native != nil,
+		"platform":   runtime.GOOS,
 	})
 }
 
@@ -480,8 +480,12 @@ func (a *Server) reveal(w http.ResponseWriter, r *http.Request) {
 	image := a.image
 	a.mu.Unlock()
 	if image != "" {
-		// Finder shows the image selected, as the app's own window would.
-		exec.Command("open", "-R", image).Run()
+		// Finder or Explorer shows the image selected.
+		if runtime.GOOS == "windows" {
+			exec.Command("explorer", "/select,"+image).Run()
+		} else {
+			exec.Command("open", "-R", image).Run()
+		}
 	}
 	writeJSON(w, map[string]bool{"ok": true})
 }

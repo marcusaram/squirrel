@@ -1,7 +1,7 @@
 # Tests every push to main and every pull request: the Go tests on Linux
-# (also on a real XFS filesystem, for reflinks) and on macOS (the maker's
-# Mac code), formatting, the builds for every board, and the web pages'
-# scripts.
+# (also on real XFS, ext4 and FAT file systems), on macOS and on Windows
+# (the maker's code for each, on Windows with a virtual disk as the card),
+# formatting, the builds for every board, and the web pages' scripts.
 name: CI
 
 on:
@@ -52,3 +52,21 @@ jobs:
       - run: make test
       - name: Squirrel Maker builds (app and command line, without the payload)
         run: make app-bundle maker-bin VERSION=ci
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Tests of the maker's packages
+        run: go test ./internal/ext4 ./internal/fatfs ./internal/maker ./internal/makerui
+      - name: A virtual disk as the card
+        env:
+          SQUIRREL_TEST_VHD: ${{ runner.temp }}\card.vhdx
+        run: go test -v -run WindowsCard ./internal/maker
+      - name: Squirrel Maker builds (app and command line)
+        run: |
+          go build -o squirrel-app.exe ./cmd/squirrel-app
+          go build -o squirrel-maker.exe ./cmd/squirrel-maker

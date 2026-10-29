@@ -1,6 +1,6 @@
 # A release for every version tag (v1.2.3): squirreld for each board, and
-# Squirrel Maker as a Mac app and as a command line program, with the
-# packages a new card installs at its first start.
+# Squirrel Maker for macOS (app and command line) and Windows (both in one
+# zip), with the packages a new card installs at its first start.
 #
 #   git tag v0.16.0 && git push origin v0.16.0
 name: Release
@@ -31,10 +31,17 @@ jobs:
         run: make release VERSION="$VERSION"
       - name: Packages for a new card
         run: make payload VERSION="$VERSION"
+      - name: Squirrel Maker for Windows
+        run: make app-windows-bundle VERSION="$VERSION"
       - uses: actions/upload-artifact@v4
         with:
           name: squirreld
           path: dist/squirreld-*.tar.gz
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maker-windows
+          path: dist/Squirrel-Maker-*-windows.zip
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
@@ -85,6 +92,10 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: maker
+          path: out
+      - uses: actions/download-artifact@v4
+        with:
+          name: maker-windows
           path: out
       - name: Checksums
         run: cd out && sha256sum -- * > SHA256SUMS && cat SHA256SUMS

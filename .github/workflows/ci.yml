@@ -1,0 +1,54 @@
+# Tests every push to main and every pull request: the Go tests on Linux
+# (also on a real XFS filesystem, for reflinks) and on macOS (the maker's
+# Mac code), formatting, the builds for every board, and the web pages'
+# scripts.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Tools the tests use when they are there
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libxml2-utils
+      - name: Formatting
+        run: |
+          unformatted=$(gofmt -l cmd internal)
+          if [ -n "$unformatted" ]; then echo "not gofmt'ed:"; echo "$unformatted"; exit 1; fi
+      - run: make test
+      - name: Tests on XFS, with reflinks
+        run: make test-linux
+      - name: squirreld for every board
+        run: make build
+      - name: Web pages
+        run: |
+          for f in internal/web/static/*.js internal/makerui/static/*.js; do node --check "$f"; done
+          for f in internal/web/static/*.svg internal/makerui/static/*.svg; do xmllint --noout "$f"; done
+      - name: Shell scripts
+        run: for f in deploy/*.sh scripts/*.sh; do bash -n "$f"; done
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: make test
+      - name: Squirrel Maker builds (app and command line, without the payload)
+        run: make app-bundle maker-bin VERSION=ci

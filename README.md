@@ -1,5 +1,7 @@
 # Squirrel
 
+[![CI](https://github.com/marcusaram/squirrel/actions/workflows/ci.yml/badge.svg)](https://github.com/marcusaram/squirrel/actions/workflows/ci.yml)
+
 Squirrel keeps every clip your Tesla's dashcam records.
 
 A small computer (a Raspberry Pi or a Radxa ROCK 4C+) sits between the car and its USB port. To the car it is an ordinary USB drive, but Squirrel keeps a copy of everything the car records, including the drives the car deletes again after an hour and what it records while parked. At home the clips go to your NAS, and you watch them in a browser with all cameras in sync, the car's speed, pedals and steering alongside.
@@ -227,7 +229,7 @@ make app          # dist/Squirrel Maker.app and its zip (Apple silicon and Intel
 make maker        # dist/squirrel-maker, the command line version
 ```
 
-`make app` and `make maker` also build `debugfs` and `e2fsck` from the [e2fsprogs](https://e2fsprogs.sourceforge.net/) source (checksum checked) and fetch the packages a new card installs at its first start, so that the first start needs no internet.
+`make app` and `make maker` build in two parts, which CI runs on different machines: `make payload-linux` (squirreld and the packages for the card, with Docker) and `make payload-mac` (see below), then `make app-bundle` or `make maker-bin` around them. They also build `debugfs` and `e2fsck` from the [e2fsprogs](https://e2fsprogs.sourceforge.net/) source (checksum checked) and fetch the packages a new card installs at its first start, so that the first start needs no internet.
 
 To run squirreld on your computer against a demo image with fake footage from six cameras:
 
@@ -237,6 +239,21 @@ go run ./cmd/squirreld run -config dev.json -web-dir internal/web/static
 ```
 
 The exFAT and FAT32 parser is tested against images made with the Linux drivers (`make testimages` rebuilds them), including fragmented files and half-written entries; the keep test checks that kept clips survive the whole image being overwritten.
+
+### CI and releases
+
+GitHub Actions tests every push to `main` and every pull request: the Go tests on Linux (also on a real XFS filesystem, for reflinks) and on macOS, formatting, squirreld for every board, Squirrel Maker, and the web pages' scripts.
+
+A release is a version tag:
+
+```bash
+git tag v0.16.0
+git push origin v0.16.0
+```
+
+The release workflow then builds squirreld for every board, Squirrel Maker as a Mac app and as a command line program (with the packages a new card needs), and publishes them with their SHA-256 checksums as a GitHub release. A tag with a suffix, such as `v0.16.0-rc1`, becomes a pre-release.
+
+Dependabot proposes newer Go modules and GitHub Actions once a week, as a pull request that CI tests.
 
 ### Commands
 

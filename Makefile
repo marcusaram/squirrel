@@ -90,10 +90,14 @@ E2FS_VERSION := 1.47.4
 E2FS_SHA256 := fd5bf388cbdbe006a3d3b318d983b2948382440acc85a87f1e7d108653e8db0b
 E2FS := dist/e2fsprogs-$(E2FS_VERSION)
 
-.PHONY: payload
-payload: dist/squirreld-linux-arm64 dist/squirreld-linux-armv6 $(E2FS)/debugfs
-	rm -rf $(PAYLOAD)/files $(PAYLOAD)/files-armv6 $(PAYLOAD)/armbian $(PAYLOAD)/mac
-	mkdir -p $(PAYLOAD)/files/debs $(PAYLOAD)/files-armv6/debs $(PAYLOAD)/armbian/debs $(PAYLOAD)/mac
+# payload is built in two parts: what needs Docker (payload-linux) and what
+# needs a Mac (payload-mac). CI builds them on different machines.
+.PHONY: payload payload-linux payload-mac
+payload: payload-linux payload-mac
+
+payload-linux: dist/squirreld-linux-arm64 dist/squirreld-linux-armv6
+	rm -rf $(PAYLOAD)/files $(PAYLOAD)/files-armv6 $(PAYLOAD)/armbian
+	mkdir -p $(PAYLOAD)/files/debs $(PAYLOAD)/files-armv6/debs $(PAYLOAD)/armbian/debs
 	cp dist/squirreld-linux-arm64 $(PAYLOAD)/files/squirreld
 	cp deploy/install.sh deploy/firstboot.sh deploy/squirreld.service deploy/squirrel-firstboot.service $(PAYLOAD)/files/
 	echo $(VERSION) > $(PAYLOAD)/files/version
@@ -113,6 +117,9 @@ payload: dist/squirreld-linux-arm64 dist/squirreld-linux-armv6 $(E2FS)/debugfs
 		cp /status /var/lib/dpkg/status; mkdir -p /tmp/a/partial; \
 		apt-get install -qq -y --download-only --no-install-recommends -o Dir::Cache::archives=/tmp/a $(ARMBIAN_PKGS) >/dev/null; \
 		cp /tmp/a/*.deb /out/ && ls /out'
+
+payload-mac: $(E2FS)/debugfs
+	rm -rf $(PAYLOAD)/mac && mkdir -p $(PAYLOAD)/mac
 	cp $(E2FS)/debugfs $(E2FS)/e2fsck $(PAYLOAD)/mac/
 
 # One rule for both tools (with two targets, make -j would run it twice
@@ -139,8 +146,12 @@ $(E2FS)/debugfs:
 APP := dist/Squirrel Maker.app
 APPCGO := CGO_ENABLED=1 CGO_CFLAGS=-mmacosx-version-min=13.0 CGO_LDFLAGS=-mmacosx-version-min=13.0
 
-.PHONY: app
+.PHONY: app app-bundle
 app: payload
+	$(MAKE) app-bundle
+
+# app-bundle builds the app around the payload that is already there.
+app-bundle:
 	GOOS=darwin GOARCH=arm64 $(APPCGO) CC="clang -arch arm64" go build -trimpath -ldflags "$(LDFLAGS)" -o dist/squirrel-app-darwin-arm64 ./cmd/squirrel-app
 	GOOS=darwin GOARCH=amd64 $(APPCGO) CC="clang -arch x86_64" go build -trimpath -ldflags "$(LDFLAGS)" -o dist/squirrel-app-darwin-amd64 ./cmd/squirrel-app
 	rm -rf "$(APP)" && mkdir -p "$(APP)/Contents/MacOS" "$(APP)/Contents/Resources"
@@ -154,8 +165,11 @@ app: payload
 # The same maker on the command line, without cgo or Wails: it serves the
 # page on localhost and opens it in the browser. One binary for Apple
 # silicon and Intel.
-.PHONY: maker
+.PHONY: maker maker-bin
 maker: payload
+	$(MAKE) maker-bin
+
+maker-bin:
 	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o dist/squirrel-maker-darwin-arm64 ./cmd/squirrel-maker
 	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o dist/squirrel-maker-darwin-amd64 ./cmd/squirrel-maker
 	lipo -create -output dist/squirrel-maker dist/squirrel-maker-darwin-arm64 dist/squirrel-maker-darwin-amd64

@@ -1,0 +1,12 @@
+[Unit]
+Description=Squirrel first start: storage, drive image and service
+After=local-fs.target
+ConditionPathExists=!/boot/firmware/squirrel/done
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /boot/firmware/squirrel/firstboot.sh
+TimeoutStartSec=30min
+
+[Install]
+WantedBy=multi-user.target

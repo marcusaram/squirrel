@@ -1,0 +1,24 @@
+[Unit]
+Description=Squirrel: USB drive for the car, clip archive and web UI
+# Start as early as possible: the car is waiting for its drive. Only the
+# data partition and configfs are needed, not the network.
+DefaultDependencies=no
+# Wants, not Requires: when the data drive is missing (a USB drive that is
+# not plugged in), squirreld starts anyway and waits for it.
+WantsMountsFor=/backingfiles
+After=sys-kernel-config.mount systemd-modules-load.service
+Conflicts=shutdown.target
+Before=shutdown.target
+
+[Service]
+ExecStart=/usr/local/bin/squirreld run -config /backingfiles/squirreld/config.json
+Restart=always
+RestartSec=2
+# The car's writes go through a kernel thread; keep our own disk and CPU
+# work behind it.
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+[Install]
+WantedBy=multi-user.target

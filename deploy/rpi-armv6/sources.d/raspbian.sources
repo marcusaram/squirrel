@@ -1,0 +1,8 @@
+# apt in the payload container: packages for the original Pi Zero W come
+# from Raspbian (armhf for ARMv6); Debian's armhf needs ARMv7.
+Types: deb
+URIs: http://raspbian.raspberrypi.com/raspbian/
+Architectures: armhf
+Suites: trixie
+Components: main
+Signed-By: /raspbian-archive-keyring.gpg

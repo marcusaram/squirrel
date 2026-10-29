@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Squirrel Maker</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="icon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="maker.css">
+</head>
+<body>
+<header class="bar">
+  <span class="brand">Squirrel Maker</span>
+  <span class="barlinks">
+    <span class="lang" id="lang" role="group" aria-label="Language"><button type="button" class="link" data-lang="en">EN</button><button type="button" class="link" data-lang="nl">NL</button></span>
+    <button type="button" class="link" id="quit" data-t>Quit</button>
+  </span>
+</header>
+
+<main>
+  <ol class="road" id="stepper" aria-label="Steps"></ol>
+
+  <form id="settings" novalidate>
+    <section class="step" data-name="Board">
+      <h1 data-t>An SD card for your Tesla Pi</h1>
+      <p class="lede" data-t>In seven steps you make a card that turns a Raspberry Pi or a Radxa ROCK 4C+ into a USB drive for the car, keeps everything the car records, and sends it to your NAS at home.</p>
+      <p class="hint"><span data-t>Already have a Squirrel card?</span> <button type="button" class="link" id="toupdate" data-t>Update it</button></p>
+      <h2 data-t>Board</h2>
+      <div class="disks boards" role="radiogroup">
+        <label class="disk"><input type="radio" name="board" value="rpi"><span class="name">Raspberry Pi</span><span class="size" data-t>Zero 2 W, 3, 4 or 5</span></label>
+        <label class="disk"><input type="radio" name="board" value="rpizerow"><span class="name">Raspberry Pi Zero W</span><span class="size" data-t>Works, slower NAS uploads (single core, 2.4 GHz wifi); Zero 2 W recommended. Not tested yet.</span></label>
+        <label class="disk"><input type="radio" name="board" value="rock4cplus"><span class="name">Radxa ROCK 4C+</span><span class="size" data-t>Car on the upper blue USB 3 port, power through USB-C</span></label>
+      </div>
+    </section>
+
+    <section class="step" data-name="Wifi">
+      <h1 data-t>Wifi</h1>
+      <p class="hint" data-t>Where the Pi connects to: your wifi at home (for the NAS) and perhaps your phone's hotspot. You can change this later in the Pi's web interface.</p>
+      <div id="wifi" class="nets"></div>
+      <button type="button" class="link add" id="addwifi" data-t>Add another network</button>
+      <div class="grid">
+        <label class="field narrow"><span data-t>Country</span><input name="country" maxlength="2" autocomplete="off"><span class="help" data-t>For the wifi channels allowed there.</span></label>
+        <label class="field"><span data-t>Password for the Pi's own hotspot</span><input name="ap_password" autocomplete="off"><span class="help" data-t>When the Pi sees no known network, it starts its own wifi called <b>Squirrel</b>. Use it to watch clips in the car.</span></label>
+      </div>
+    </section>
+
+    <section class="step" data-name="Log in">
+      <h2 data-t>Logging in to the Pi</h2>
+      <p class="hint" data-t>For maintenance over SSH. The web interface works without it.</p>
+      <div class="grid">
+        <label class="field"><span data-t>Name of the Pi</span><input name="hostname" autocomplete="off"><span class="help"><span data-t>Reachable as</span> <b id="hostpreview">squirrel</b>.local</span></label>
+        <label class="field"><span data-t>User</span><input name="user" autocomplete="off"></label>
+      </div>
+      <label class="field"><span data-t>Password</span><span class="pwbox"><input name="password" type="password" autocomplete="new-password"><button type="button" class="link show" data-t>Show</button></span><span class="help" data-t>May be empty if you use an SSH key.</span></label>
+      <label class="field"><span data-t>SSH key</span><textarea name="ssh_key" rows="3" spellcheck="false"></textarea><span class="help" data-t>This Mac's public key is already filled in.</span></label>
+      <label class="field narrow"><span data-t>Time zone</span><input name="timezone" autocomplete="off"></label>
+    </section>
+
+    <section class="step" data-name="NAS and storage">
+      <h2 data-t>NAS and storage</h2>
+      <p class="hint" data-t>Once the car is home, the Pi uploads Sentry and saved clips to a shared folder on your NAS.</p>
+      <label class="check"><input type="checkbox" name="nas.enabled"> <span data-t>Upload to a NAS (SMB)</span></label>
+      <div class="grid" id="nasfields">
+        <label class="field"><span data-t>Server</span><input name="nas.host" autocomplete="off" placeholder="nas.local"></label>
+        <label class="field"><span data-t>Shared folder</span><input name="nas.share" autocomplete="off" placeholder="video"></label>
+        <label class="field"><span data-t>Folder inside the share</span><input name="nas.path" autocomplete="off"></label>
+        <label class="field"><span data-t>User</span><input name="nas.user" autocomplete="off"></label>
+        <label class="field"><span data-t>Password</span><span class="pwbox"><input name="nas.password" type="password" autocomplete="new-password"><button type="button" class="link show" data-t>Show</button></span></label>
+      </div>
+      <label class="field slider"><span data-t>Space for the car's recordings</span>
+        <span class="sliderrow"><input type="range" name="cam_percent" min="20" max="60" step="5"><output id="campct"></output></span>
+        <span class="help" data-t>The rest of the card is for clips the Pi keeps. 40% is a good start.</span></label>
+      <div id="usbrow">
+        <label class="check"><input type="checkbox" name="usb_storage"> <span data-t>Keep the recordings on a USB drive (SSD) instead of the card</span></label>
+        <p class="help" data-t>For a Raspberry Pi 4 or 5 or a ROCK 4C+, on a USB port other than the car's. The space for the car is then taken from the drive. At the first start an empty drive is formatted; a drive with anything on it is left alone, and the first-start log says how to erase it. Some drives need more power than the car's USB port gives.</p>
+      </div>
+      <div id="overclockrow">
+        <label class="check"><input type="checkbox" name="sd_overclock"> <span data-t>Run the SD card faster (Zero W, Zero 2 W, Pi 3)</span></label>
+        <p class="help" data-t>These boards drive the card at 50 MHz, about 20 MB/s: less than the car sends. This raises it to up to 100 MHz. That is beyond the SD card standard: a good A2 or V30 card usually copes, but a card that does not gives read and write errors and can lose recordings. Leave it off unless you want to try; Pi 4 and 5 do not need it.</p>
+      </div>
+    </section>
+
+    <section class="step" data-name="Build image">
+      <h2 data-t>Build the image</h2>
+      <p class="hint" id="osnote"></p>
+      <div class="disks boards" id="releases" role="radiogroup" aria-label="Operating system"></div>
+      <p class="hint" id="releasenote" hidden></p>
+      <dl class="summary" id="summary"></dl>
+      <button type="submit" class="btn primary big" id="build" data-t>Build image</button>
+      <div class="job" id="buildjob" hidden></div>
+    </section>
+  </form>
+
+  <section class="step" id="writestep" data-name="SD card">
+    <h2 data-t>Put it on the SD card</h2>
+    <p class="hint" data-t>Insert the card in your Mac. Everything on it is erased. The car writes all the time, so the card matters most: take an A2 or V30 card of 32 GB or more, or one sold for dashcams (High Endurance).</p>
+    <div id="disks" class="disks"></div>
+    <div class="row">
+      <button type="button" class="btn primary big" id="write" disabled data-t>Write to card</button>
+      <button type="button" class="link" id="refresh" data-t>Search again</button>
+    </div>
+    <div class="job" id="writejob" hidden></div>
+  </section>
+
+  <section class="step done" id="after" data-name="Done">
+    <h2 data-t>The card is ready</h2>
+    <ol class="next">
+      <li><span data-t><b>Card in the Pi.</b> Connect the Pi to the car or a charger, using the USB data port.</span></li>
+      <li><span data-t><b>Wait a moment.</b> The first start takes a few minutes. The LED blinks fast while the Pi is busy.</span></li>
+      <li><span><b data-t>Open it.</b> <span data-t>Go to</span> <b id="url">http://squirrel.local/</b><span data-t>, or join the wifi <b>Squirrel</b> if the Pi does not find your network.</span></span></li>
+    </ol>
+    <p class="hint" data-t>Not working? Put the card in your Mac: <code>squirrel/firstboot.log</code> tells where it stopped.</p>
+    <button type="button" class="btn" id="another" data-t>Make another card</button>
+  </section>
+
+  <section class="updater" id="updater" hidden>
+    <h1 data-t>Update a card</h1>
+    <p class="lede" data-t>Puts this version of Squirrel on a card that already has it. Settings, wifi networks and kept clips stay; the Pi installs the update at its next start, which takes a minute longer than usual.</p>
+    <div id="udisks" class="disks"></div>
+    <div class="row">
+      <button type="button" class="btn primary big" id="doupdate" disabled data-t>Update card</button>
+      <button type="button" class="link" id="urefresh" data-t>Search again</button>
+    </div>
+    <div class="job" id="updatejob" hidden></div>
+    <p class="hint"><button type="button" class="link" id="tonew" data-t>Make a new card instead</button></p>
+  </section>
+
+  <nav class="wiznav" id="wiznav">
+    <p class="note" id="stepnote" role="alert"></p>
+    <div class="buttons">
+      <button type="button" class="btn" id="prev" data-t>Back</button>
+      <button type="button" class="btn primary" id="next" data-t>Next</button>
+    </div>
+  </nav>
+  <p class="foot" id="imageinfo"></p>
+</main>
+<script src="i18n.js" defer></script>
+<script src="maker.js" defer></script>
+</body>
+</html>

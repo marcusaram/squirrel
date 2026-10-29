@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1c2127">
+<title>Squirrel</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="icon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="#/">Squirrel</a>
+  <nav class="tabs" aria-label="Main menu" data-t-label="Main menu">
+    <a href="#/" data-view="clips">Clips</a>
+    <a href="#/status" data-view="status">Status</a>
+    <a href="#/settings" data-view="settings" data-t="Settings">Settings</a>
+    <a href="#/log" data-view="logs" data-t="Log">Log</a>
+  </nav>
+  <div class="pulse" id="pulse" aria-live="polite"></div>
+  <div class="lang" id="lang" role="group" aria-label="Language">
+    <button type="button" data-lang="en" lang="en" title="English">EN</button>
+    <button type="button" data-lang="nl" lang="nl" title="Nederlands">NL</button>
+  </div>
+</header>
+<div id="warnings" class="warnings" role="status"></div>
+<main id="app"></main>
+<script src="i18n.js" defer></script>
+<script src="app.js" defer></script>
+</body>
+</html>

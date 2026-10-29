@@ -1,0 +1,379 @@
+@font-face { font-family: "Barlow"; font-weight: 400; font-display: swap; src: url(fonts/barlow-400.woff2) format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 500; font-display: swap; src: url(fonts/barlow-500.woff2) format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 600; font-display: swap; src: url(fonts/barlow-600.woff2) format("woff2"); }
+@font-face { font-family: "Barlow Semi Condensed"; font-weight: 500; font-display: swap; src: url(fonts/barlow-semi-condensed-500.woff2) format("woff2"); }
+@font-face { font-family: "Barlow Semi Condensed"; font-weight: 600; font-display: swap; src: url(fonts/barlow-semi-condensed-600.woff2) format("woff2"); }
+
+:root {
+  --asphalt: #1c2127;
+  --surface: #242a31;
+  --raised: #2d343c;
+  --line: #38404a;
+  --text: #e6e9ec;
+  --muted: #95a0ab;
+  --sentry: #e0453a;
+  --saved: #6a97f0;
+  --drive: #95a0ab;
+  --track: #4fb3a5;
+  --lane: #f2c94c;
+  --ok: #5cc28a;
+  --warn: #f0a24c;
+  --blinker: #34e27a;
+  --body: "Barlow", system-ui, sans-serif;
+  --narrow: "Barlow Semi Condensed", "Barlow", system-ui, sans-serif;
+  --gutter: 16px;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--asphalt);
+  color: var(--text);
+  font: 400 16px/1.45 var(--body);
+  min-height: 100vh;
+}
+a { color: inherit; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--lane); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+h1, h2, h3 { font-weight: 600; line-height: 1.2; margin: 0; }
+h2 { font-size: 22px; }
+h3 { font-size: 17px; }
+
+/* Header */
+.top {
+  display: flex; align-items: center; gap: 32px;
+  padding: 0 var(--gutter); min-height: 56px;
+  padding-top: env(safe-area-inset-top);
+  border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 10;
+  background: var(--asphalt);
+}
+.brand { font-weight: 600; font-size: 18px; text-decoration: none; letter-spacing: .01em; }
+.tabs { display: flex; gap: 20px; align-self: stretch; }
+.tabs a {
+  display: flex; align-items: center; text-decoration: none; color: var(--muted); font-weight: 500;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; padding-top: 2px;
+}
+.tabs a:hover { color: var(--text); }
+/* The active tab sits on a lane line, as in Squirrel Maker. */
+.tabs a[aria-current="page"] { color: var(--text); border-bottom-color: var(--lane); }
+.pulse { margin-left: auto; display: flex; gap: 20px; font-size: 14px; color: var(--text); white-space: nowrap; }
+.pulse .optional { color: var(--muted); }
+.pulse span { display: inline-flex; align-items: center; gap: 6px; }
+/* Language: two quiet letter pairs; the one in use is plain text. */
+.lang { display: flex; gap: 2px; margin-left: -16px; }
+.lang button {
+  background: none; border: 0; padding: 4px 6px; border-radius: 4px; cursor: pointer;
+  font-size: 13px; font-weight: 500; letter-spacing: .04em; color: var(--muted);
+}
+.lang button:hover { color: var(--text); }
+.lang button[aria-pressed="true"] { color: var(--text); cursor: default; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.ok { background: var(--ok); }
+.dot.warn { background: var(--warn); }
+.dot.bad { background: var(--sentry); }
+.dot.live { background: var(--sentry); box-shadow: 0 0 0 0 rgba(224, 69, 58, .6); animation: rec 1.6s infinite; }
+@keyframes rec { 70% { box-shadow: 0 0 0 7px rgba(224, 69, 58, 0); } 100% { box-shadow: 0 0 0 0 rgba(224, 69, 58, 0); } }
+
+.warnings:empty { display: none; }
+.warnings { margin: 12px var(--gutter) 0; padding: 10px 14px; background: #2f2a22; color: #f3dcb9; font-size: 14px; border-left: 3px solid var(--warn); border-radius: 0 8px 8px 0; }
+.warnings p { margin: 2px 0; max-width: 90ch; }
+
+main { padding: 0; }
+
+/* Clips: list + player */
+.clips { display: grid; grid-template-columns: minmax(320px, 380px) 1fr; height: calc(100vh - 57px); }
+.list-pane { border-right: 1px solid var(--line); overflow-y: auto; }
+.filters { display: flex; gap: 6px; padding: 14px var(--gutter); overflow-x: auto; scrollbar-width: none; position: sticky; top: 0; background: var(--asphalt); z-index: 2; border-bottom: 1px solid var(--line); }
+.filters button {
+  border: 1px solid var(--line); background: none; border-radius: 999px; padding: 4px 11px; font-size: 14px; cursor: pointer; color: var(--muted); white-space: nowrap; flex: none;
+}
+.filters button[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: var(--asphalt); font-weight: 500; }
+.day { padding: 20px var(--gutter) 8px; font-size: 14px; color: var(--muted); font-weight: 500; }
+.day:first-letter { text-transform: uppercase; }
+.clip {
+  display: grid; grid-template-columns: 76px 1fr auto; gap: 2px 12px; align-items: center;
+  padding: 8px var(--gutter) 8px calc(var(--gutter) - 3px);
+  text-decoration: none; border-left: 3px solid var(--drive);
+}
+.clip:hover { background: var(--surface); }
+.clip[aria-current="true"] { background: var(--raised); }
+.clip.kind-sentry { border-left-color: var(--sentry); }
+.clip.kind-saved { border-left-color: var(--saved); }
+.clip.kind-track { border-left-color: var(--track); }
+.thumb {
+  grid-row: span 2; width: 76px; aspect-ratio: 4 / 3; border-radius: 4px; overflow: hidden;
+  background: var(--surface); display: grid; place-items: center;
+}
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb svg { width: 40px; height: 30px; color: var(--muted); }
+.clip .what { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clip .when { font-family: var(--narrow); font-weight: 500; font-variant-numeric: tabular-nums; }
+.clip .where { color: var(--muted); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clip .synced { font-size: 13px; color: var(--muted); justify-self: end; }
+.empty { padding: 40px var(--gutter); color: var(--muted); max-width: 46ch; }
+.empty h3 { color: var(--text); margin-bottom: 6px; }
+/* No clips at all: one calm message instead of two empty panes. */
+.nothing { max-width: 520px; margin: 12vh auto 0; padding: 0 var(--gutter); }
+.nothing h2 { font-size: 26px; margin-bottom: 10px; }
+.nothing > p { color: var(--muted); margin: 0 0 28px; font-size: 17px; }
+.nothing dl.readout { padding: 20px; background: var(--surface); border-radius: 10px; }
+
+/* Player */
+.player-pane { overflow-y: auto; min-width: 0; }
+.player { padding: 16px var(--gutter) 24px; display: flex; flex-direction: column; gap: 14px; max-width: 1400px; }
+.player-head { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.player-head .title { flex: 1; min-width: 200px; }
+.player-head .title p { margin: 4px 0 0; color: var(--muted); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px;
+  border: 1px solid var(--line); background: transparent; cursor: pointer; text-decoration: none; font-weight: 500; font-size: 15px;
+}
+.btn:hover { background: var(--surface); }
+.btn.primary { background: var(--text); color: var(--asphalt); border-color: var(--text); }
+.btn.danger { color: #ffb3ad; }
+.btn:disabled { opacity: .5; cursor: default; }
+.back { display: none; }
+
+/* Seen from the driver's seat: the front camera is the windscreen, the
+   instruments sit on either side of it, the cameras looking back are the
+   mirrors below. Front over 4 of 6 columns and a row of three 4:3 tiles
+   make the stage 0.75 times as tall as it is wide; the width is capped so
+   it fits under the header and above the controls. */
+.stage {
+  display: grid; gap: 6px;
+  width: 100%; max-width: max(480px, calc((100vh - 280px) / 0.75)); margin: 0 auto;
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-areas:
+    "gl front front front front gr"
+    "left_repeater left_repeater back back right_repeater right_repeater";
+}
+/* Six cameras: the pillar cameras flank the front, the instruments become
+   a strip between the rows. */
+.stage.six {
+  /* The front and rear cameras a half wider than the side ones. */
+  grid-template-columns: 1fr 1fr 1.5fr 1.5fr 1fr 1fr; align-items: center;
+  max-width: max(480px, calc((100vh - 400px) / 0.57));
+  grid-template-areas:
+    "left_pillar left_pillar front front right_pillar right_pillar"
+    "gl gl gl gr gr gr"
+    "left_repeater left_repeater back back right_repeater right_repeater";
+}
+.tile[data-cam=front] { grid-area: front; }
+.tile[data-cam=back] { grid-area: back; }
+.tile[data-cam=left_repeater] { grid-area: left_repeater; }
+.tile[data-cam=right_repeater] { grid-area: right_repeater; }
+.tile[data-cam=left_pillar] { grid-area: left_pillar; }
+.tile[data-cam=right_pillar] { grid-area: right_pillar; }
+.tile { position: relative; background: #000; border-radius: 4px; overflow: hidden; aspect-ratio: 4 / 3; cursor: zoom-in; }
+.tile video { width: 100%; height: 100%; object-fit: contain; display: block; }
+.tile .cam { position: absolute; left: 8px; bottom: 6px; font-size: 13px; font-weight: 500; text-shadow: 0 1px 3px #000; }
+.tile .none { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 14px; }
+.tile.focus { outline: 2px solid var(--lane); outline-offset: -2px; }
+.car-cell { grid-area: car; display: none; justify-items: center; align-items: start; }
+.clock { font-family: var(--narrow); font-weight: 600; font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: .01em; min-width: 5.2ch; }
+.clock small { display: block; font-family: var(--body); font-weight: 400; font-size: 13px; color: var(--muted); margin-top: 3px; letter-spacing: 0; }
+.car { width: 64px; height: auto; }
+.car .body { fill: var(--surface); stroke: var(--muted); stroke-width: 1.5; }
+.car .glass { fill: var(--raised); }
+.car .camdot { fill: var(--muted); cursor: pointer; }
+.car .camdot.has { fill: var(--text); }
+.car .camdot.active { fill: var(--lane); }
+.car .camdot.missing { display: none; }
+.car .blink { fill: var(--raised); }
+.car.left-on .blink.left, .car.right-on .blink.right { fill: var(--warn); animation: blink .7s steps(1) infinite; }
+@keyframes blink { 50% { fill: var(--raised); } }
+.car .brake { fill: var(--raised); }
+.car.braking .brake { fill: var(--sentry); }
+@media (prefers-reduced-motion: reduce) { .car.left-on .blink.left, .car.right-on .blink.right { animation: none; } }
+
+/* Instruments. Colours keep the meaning they have elsewhere in the app:
+   lane yellow is "now", red the brake, blue Autopilot, amber the blinker
+   lamps on the car; the turn signal symbols are the dashboard's green. */
+.gauges { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: 10px 4px; font-variant-numeric: tabular-nums; min-width: 0; }
+.gl { grid-area: gl; }
+.gr { grid-area: gr; }
+/* No driving data (older firmware, or parked): just say so; with six
+   cameras the strip goes and the rows close up. */
+.stage.no-data .gauges > :not(.nodata) { display: none; }
+.stage.six.no-data .gauges { display: none; }
+.nodata { margin: 0; color: var(--muted); font-size: 13px; text-align: center; max-width: 12ch; }
+.speedo { display: flex; flex-direction: column; align-items: center; line-height: 1; font-family: var(--narrow); }
+.speedo b { font-size: clamp(34px, 4.2vw, 56px); font-weight: 600; letter-spacing: -.01em; }
+.speedo .unit { font: inherit; font-size: 13px; color: var(--muted); margin-top: 4px; letter-spacing: .02em;
+  background: none; border: 0; padding: 2px 4px; cursor: pointer; border-radius: 4px; }
+.speedo .unit:hover { color: var(--text); }
+.prnd { display: flex; gap: 2px; font-family: var(--narrow); font-weight: 600; font-size: 17px; }
+.prnd span { width: 1.25em; text-align: center; color: var(--line); padding-bottom: 3px; border-bottom: 2px solid transparent; }
+.prnd span.on { color: var(--text); border-bottom-color: var(--lane); }
+.gauges .ap { font-size: 13px; font-weight: 600; color: var(--saved); border: 1px solid currentColor; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+.gauges .route { width: min(100%, 120px); height: auto; aspect-ratio: 10 / 7; }
+.gauges .route polyline { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.gauges .route circle { fill: var(--lane); }
+.gauges .map { font-size: 13px; color: var(--muted); }
+
+.steer { display: flex; align-items: center; gap: 6px; }
+/* wheel.svg has the rim's centre in its middle. No transitions: the player
+   interpolates between samples every frame. */
+.wheel { width: clamp(64px, 7vw, 100px); height: auto; transform-origin: 50% 50%; }
+.drive, .steering { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.steering { gap: 4px; }
+.angle { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.turn { width: 16px; height: auto; flex: none; fill: var(--muted); opacity: .3; }
+.turn.on { fill: var(--blinker); opacity: 1; animation: turn .7s steps(1) infinite; }
+@keyframes turn { 50% { fill: var(--muted); opacity: .3; } }
+.pedals { display: flex; gap: 14px; align-items: flex-end; }
+.pedal { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.pedal .bar { position: relative; width: 12px; height: 64px; border-radius: 3px; background: var(--raised); overflow: hidden; }
+.pedal .bar i { position: absolute; left: 0; right: 0; bottom: 0; height: 0; }
+.pedal.gas .bar i { background: var(--ok); }
+.pedal.brake .bar i { background: var(--sentry); }
+.pedal .lbl { font-size: 12px; color: var(--muted); }
+.pedal.on .lbl { color: var(--text); }
+/* As a strip (six cameras, or one camera): one compact row each side. */
+.stage.six .gauges, .stage.single .gauges { flex-direction: row; flex-wrap: nowrap; gap: 18px; padding: 4px; }
+.stage.six .gl, .stage.single .gl { justify-content: flex-end; }
+.stage.six .gr, .stage.single .gr { justify-content: flex-start; }
+.stage.six .gauges .route, .stage.single .gauges .route { display: none; }
+.stage.six .speedo b, .stage.single .speedo b { font-size: 34px; }
+.stage.six .wheel, .stage.single .wheel { width: 46px; }
+.stage.six .pedal .bar, .stage.single .pedal .bar { height: 40px; }
+.stage.single .gauges .map { display: none; }
+.stage.single .gauges { gap: 14px; }
+@media (prefers-reduced-motion: reduce) {
+  .turn.on { animation: none; }
+}
+
+/* Single camera: the chosen camera takes the whole width, with the
+   instruments as a strip under it and the car, which picks the camera, at
+   its end. */
+.stage.single, .stage.single.six {
+  max-width: max(320px, calc((100vh - 400px) * 4 / 3));
+  grid-template-columns: 1fr 1fr auto; grid-template-rows: auto;
+  grid-template-areas: "main main main" "gl gr car";
+}
+.stage.single .tile { display: none; }
+.stage.single .tile.focus { display: block; grid-area: main; outline: none; cursor: zoom-out; }
+.stage.single .car-cell { display: grid; align-items: center; }
+.stage.single.no-data .gauges > .nodata { display: block; }
+
+.transport { display: grid; grid-template-columns: auto auto 1fr auto; gap: 16px; align-items: center; width: 100%; max-width: 1100px; margin: 0 auto; }
+.transport .controls, .transport .modes { display: flex; gap: 6px; align-items: center; }
+.icon-btn {
+  width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface);
+  display: grid; place-items: center; cursor: pointer;
+}
+.icon-btn.play { width: 48px; height: 48px; background: var(--text); color: var(--asphalt); border-color: var(--text); }
+.icon-btn svg { width: 18px; height: 18px; fill: currentColor; }
+.speed { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 6px 8px; }
+
+.timeline { position: relative; height: 44px; cursor: pointer; touch-action: none; }
+.timeline .road { position: absolute; left: 0; right: 0; top: 16px; height: 12px; background: var(--surface); border-radius: 3px; overflow: hidden; }
+.timeline .seg { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--line); }
+.timeline .done { position: absolute; left: 0; top: 0; bottom: 0; background: var(--raised); }
+.timeline .head { position: absolute; top: 9px; width: 3px; height: 26px; margin-left: -1.5px; background: var(--lane); border-radius: 2px; }
+.timeline .event { position: absolute; top: 12px; width: 10px; height: 20px; margin-left: -5px; }
+.timeline .event::before { content: ""; position: absolute; left: 3px; top: 0; bottom: 0; width: 4px; border-radius: 2px; background: var(--sentry); }
+.timeline .ends { position: absolute; left: 0; right: 0; bottom: -4px; display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Status and settings */
+.page { padding: 32px var(--gutter) 64px; max-width: 960px; }
+.page > h2 { font-size: 26px; margin-bottom: 8px; }
+.page > .muted { margin-top: 0; }
+.section { padding: 28px 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 200px 1fr; gap: 14px 40px; }
+.section:last-child { border-bottom: 0; }
+.section > header p { margin: 6px 0 0; color: var(--muted); font-size: 14px; max-width: 34ch; }
+dl.readout { margin: 0; display: grid; grid-template-columns: minmax(150px, max-content) 1fr; gap: 10px 24px; }
+dl.readout dt { color: var(--muted); }
+dl.readout dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.state { display: inline-flex; align-items: center; gap: 8px; font-weight: 500; }
+.meter { height: 10px; background: var(--surface); border-radius: 3px; position: relative; overflow: hidden; margin: 4px 0 2px; max-width: 520px; }
+.meter > i { position: absolute; top: 0; bottom: 0; left: 0; background: var(--muted); }
+.meter > b { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--warn); }
+.row-actions { grid-column: 2; display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; align-items: flex-start; align-self: start; }
+pre.output { grid-column: 2; background: var(--surface); padding: 12px; border-radius: 6px; font-size: 13px; overflow-x: auto; white-space: pre-wrap; margin: 0; }
+
+form .fields, .section > .fields { display: grid; gap: 20px; max-width: 520px; }
+label.field { display: grid; gap: 6px; font-weight: 500; }
+label.field span { font-weight: 400; color: var(--muted); font-size: 14px; }
+input[type=text], input[type=password], input[type=number] {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; width: 100%;
+}
+input:focus { border-color: var(--muted); }
+.checks { display: grid; gap: 8px; }
+.checks label { display: flex; gap: 10px; align-items: baseline; }
+.checks small { color: var(--muted); }
+.netrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--surface); max-width: 520px; }
+.netrow small { color: var(--ok); }
+input[type=checkbox] { accent-color: var(--lane); width: 16px; height: 16px; }
+.form-actions { display: flex; gap: 10px; align-items: center; margin-top: 20px; flex-wrap: wrap; }
+.note { font-size: 14px; color: var(--muted); }
+.note.good { color: var(--ok); }
+.note.bad { color: #ffb3ad; }
+
+.logs { width: 100%; border-collapse: collapse; font-size: 14px; }
+.logs td { padding: 4px 12px 4px 0; vertical-align: top; border-bottom: 1px solid var(--surface); }
+.logs td:first-child { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.logs .lvl-WARN td:nth-child(2) { color: var(--warn); }
+.logs .lvl-ERROR td:nth-child(2) { color: #ffb3ad; }
+.logs td:nth-child(3) { overflow-wrap: anywhere; }
+
+@media (max-width: 1100px) {
+  .pulse .optional { display: none; }
+}
+@media (max-width: 860px) {
+  .top { flex-wrap: wrap; gap: 8px 16px; }
+  .pulse { margin-left: 0; width: 100%; order: 3; gap: 14px; overflow-x: auto; }
+  .lang { margin-left: auto; }
+  .clips { grid-template-columns: 1fr; height: auto; }
+  .list-pane { border-right: 0; }
+  .clips.has-player .list-pane { display: none; }
+  .clips:not(.has-player) .player-pane { display: none; }
+  .back { display: inline-flex; }
+  .section { grid-template-columns: 1fr; }
+  .row-actions, pre.output { grid-column: 1; }
+  .stage.single, .stage.single.six { max-width: none; grid-template-columns: 1fr 56px;
+    grid-template-areas: "main main" "gl car" "gr car"; }
+  .stage.single .gauges, .stage.single .gl, .stage.single .gr { gap: 10px 18px; justify-content: center; }
+  .stage.single .gauges .route, .stage.single .gauges .map { display: none; }
+  .stage.single .car { width: 46px; }
+  .transport { grid-template-columns: auto 1fr; }
+  .transport .timeline { grid-column: 1 / -1; }
+  .transport .controls { justify-content: flex-end; }
+  .transport .modes { grid-column: 1 / -1; justify-content: center; }
+}
+@media (max-width: 520px) {
+  .tabs a { padding: 6px 8px; }
+  .brand { display: none; }
+  dl.readout { grid-template-columns: 1fr; gap: 0; }
+  dl.readout dd { margin-bottom: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dot.live { animation: none; }
+}
+
+/* Status overview: three states you can read at a glance. */
+.overview { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 20px 0 8px; }
+.overview > div { padding: 18px 20px; background: var(--surface); border-radius: 10px; }
+.overview .what { color: var(--muted); font-size: 14px; margin-bottom: 6px; }
+.overview .state { font-size: 19px; line-height: 1.3; align-items: baseline; }
+.overview .state .dot { transform: translateY(-2px); }
+.overview .sub { color: var(--muted); font-size: 14px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.quiet { color: var(--muted); font-size: 14px; }
+@media (max-width: 860px) {
+  .overview { grid-template-columns: 1fr; }
+  .tabs { gap: 16px; }
+  .top { min-height: 0; padding-top: max(10px, env(safe-area-inset-top)); padding-bottom: 0; }
+  .tabs a { padding: 6px 0 10px; }
+  .pulse { padding-bottom: 10px; }
+}
+.sliderrow { display: flex; align-items: center; gap: 16px; max-width: 420px; }
+.sliderrow input { flex: 1; accent-color: var(--lane); }
+.sliderrow output { font-family: var(--narrow); font-weight: 600; font-size: 18px; min-width: 3.5ch; text-align: right; color: var(--text); }

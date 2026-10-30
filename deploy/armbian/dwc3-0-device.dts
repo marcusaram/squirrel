@@ -1,7 +1,8 @@
 // Puts the upper USB 3 port (dwc3_0) of the Radxa ROCK 4C+ in device mode,
-// so it can be the car's drive. From the teslausb wiki, where it works
-// with Armbian on this board:
-// https://github.com/marcone/teslausb/wiki/Rock-Pi-4C-plus-Installation
+// so it can be the car's drive. Only the mode changes: the port keeps its
+// USB 2 and USB 3 PHYs, so it works with USB 2 hosts and cables too. (The
+// overlay in the teslausb wiki also sets phys to the USB 3 PHY alone; a
+// USB 2 connection then never shows up.)
 /dts-v1/;
 /plugin/;
 
@@ -12,16 +13,6 @@
 		target = <&usbdrd_dwc3_0>;
 		__overlay__ {
 			dr_mode = "peripheral";
-			compatible = "snps,dwc3";
-			reg = <0x0 0xfe800000 0x0 0x100000>;
-			phys = <&tcphy0_usb3>;
-			phy-names = "usb3-phy";
-			phy_type = "utmi_wide";
-			snps,dis_enblslpm_quirk;
-			snps,dis-u2-freeclk-exists-quirk;
-			snps,dis_u2_susphy_quirk;
-			snps,dis-del-phy-power-chg-quirk;
-			snps,xhci-slow-suspend-quirk;
 		};
 	};
 };

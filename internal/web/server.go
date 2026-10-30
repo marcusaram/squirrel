@@ -44,7 +44,7 @@ type Backend interface {
 	ResizeCam(ctx context.Context, percent int) (string, error)
 	// ComputerMode switches between the car's drive and the read-only
 	// drive with long videos for a computer.
-	ComputerMode(on bool, lang string) error
+	ComputerMode(on bool, lang, unit string) error
 	ComputerOn() bool
 }
 
@@ -634,12 +634,13 @@ func (s *Server) computer(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		On   bool   `json:"on"`
 		Lang string `json:"lang"`
+		Unit string `json:"unit"` // of speed: kmh or mph
 	}
 	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<10)).Decode(&in); err != nil {
 		fail(w, http.StatusBadRequest, err)
 		return
 	}
-	if err := s.Backend.ComputerMode(in.On, in.Lang); err != nil {
+	if err := s.Backend.ComputerMode(in.On, in.Lang, in.Unit); err != nil {
 		fail(w, http.StatusConflict, err)
 		return
 	}

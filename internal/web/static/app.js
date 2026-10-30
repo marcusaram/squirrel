@@ -989,7 +989,7 @@ function computerSection() {
     if (on && !confirm(t('The car loses its USB drive until you switch back or restart the Pi. Do this with the Pi connected to a computer, not in the car. Continue?'))) return;
     btn.disabled = true;
     try {
-      await api('computer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on, lang: LANG }) });
+      await api('computer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on, lang: LANG, unit: SPEED_UNIT === UNITS.mph ? 'mph' : 'kmh' }) });
     } catch (e) { alert(tErr(e.message)); }
     btn.disabled = false;
   } });

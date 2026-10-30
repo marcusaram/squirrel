@@ -23,18 +23,23 @@ type Words struct {
 	Kinds  map[string]string // recent, saved, sentry, track, other
 	ReadMe string
 	Text   string
+	Subs   mp4.Words // the videos' subtitles
 }
 
 var languages = map[string]Words{
 	"en": {
 		Kinds:  map[string]string{"recent": "Drives", "saved": "Saved", "sentry": "Sentry", "track": "Track mode", "other": "Other"},
 		ReadMe: "Read me.txt",
-		Text:   "Squirrel in computer mode\r\n\r\nEvery camera of every drive and event is one video here, joined from the\r\ncar's one-minute recordings. This drive is read-only; nothing on it can be\r\nchanged or deleted.\r\n\r\nWhat was kept after this drive was made appears the next time computer\r\nmode is switched on. To give the Pi back to the car, choose \"Back to car\r\nmode\" in its web interface, or restart it.\r\n",
+		Text:   "Squirrel in computer mode\r\n\r\nEvery camera of every drive and event is one video here, joined from the\r\ncar's one-minute recordings. This drive is read-only; nothing on it can be\r\nchanged or deleted.\r\n\r\nThe videos have subtitles with the car's speed, steering, pedals and\r\nAutopilot, where the car recorded them; turn them on in your video player.\r\n\r\nWhat was kept after this drive was made appears the next time computer\r\nmode is switched on. To give the Pi back to the car, choose \"Back to car\r\nmode\" in its web interface, or restart it.\r\n",
+		Subs: mp4.Words{Language: "eng", Unit: "km/h", Factor: 3.6, Brake: "BRAKE",
+			Autopilot: [4]string{"", "Self-driving", "Autosteer", "Cruise"}},
 	},
 	"nl": {
 		Kinds:  map[string]string{"recent": "Ritten", "saved": "Opgeslagen", "sentry": "Sentry", "track": "Circuitmodus", "other": "Overig"},
 		ReadMe: "Lees mij.txt",
-		Text:   "Squirrel in computermodus\r\n\r\nElke camera van elke rit en gebeurtenis is hier één video, samengevoegd uit\r\nde opnames van een minuut van de auto. Deze schijf is alleen-lezen; er kan\r\nniets op worden veranderd of verwijderd.\r\n\r\nWat na het maken van deze schijf is bewaard, verschijnt de volgende keer dat\r\nde computermodus aangaat. Om de Pi terug te geven aan de auto, kies je\r\n\"Terug naar autostand\" in de web-interface, of start je hem opnieuw op.\r\n",
+		Text:   "Squirrel in computermodus\r\n\r\nElke camera van elke rit en gebeurtenis is hier één video, samengevoegd uit\r\nde opnames van een minuut van de auto. Deze schijf is alleen-lezen; er kan\r\nniets op worden veranderd of verwijderd.\r\n\r\nDe video's hebben ondertitels met de snelheid, het stuur, de pedalen en\r\nAutopilot van de auto, waar de auto die opnam; zet ze aan in je videospeler.\r\n\r\nWat na het maken van deze schijf is bewaard, verschijnt de volgende keer dat\r\nde computermodus aangaat. Om de Pi terug te geven aan de auto, kies je\r\n\"Terug naar autostand\" in de web-interface, of start je hem opnieuw op.\r\n",
+		Subs: mp4.Words{Language: "nld", Unit: "km/h", Factor: 3.6, Brake: "REM",
+			Autopilot: [4]string{"", "Zelfrijdend", "Autosteer", "Cruise control"}},
 	},
 }
 
@@ -51,7 +56,7 @@ type longEntry struct {
 	r    *mp4.Reader
 }
 
-func (c *Longs) readAt(files []string, starts []float64, size int64, p []byte, off int64) (int, error) {
+func (c *Longs) readAt(files []string, starts []float64, words mp4.Words, size int64, p []byte, off int64) (int, error) {
 	key := strings.Join(files, "\x00")
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -62,7 +67,7 @@ func (c *Longs) readAt(files []string, starts []float64, size int64, p []byte, o
 		}
 	}
 	if e == nil {
-		l, err := mp4.ConcatAt(files, starts)
+		l, err := mp4.ConcatSubs(files, starts, words)
 		if err != nil {
 			return 0, err
 		}
@@ -93,13 +98,15 @@ func (c *Longs) Close() {
 	c.cache = nil
 }
 
-// Tree builds the drive's folders from the archive. lang is "en" or "nl";
+// Tree builds the drive's folders from the archive. lang is "en" or "nl",
+// unit the subtitles' speed, "kmh" or "mph" (as the web player shows it);
 // progress is called after each group.
-func Tree(ix *archive.Index, lang string, longs *Longs, progress func(done, total int)) (*exfatgen.Dir, int, error) {
+func Tree(ix *archive.Index, lang, unit string, longs *Longs, progress func(done, total int)) (*exfatgen.Dir, int, error) {
 	words, ok := languages[lang]
 	if !ok {
 		words = languages["en"]
 	}
+	words.Subs = subtitleWords(words.Subs, unit)
 	now := time.Now()
 	root := &exfatgen.Dir{Mod: now}
 	text := []byte(words.Text)
@@ -136,13 +143,13 @@ func Tree(ix *archive.Index, lang string, longs *Longs, progress func(done, tota
 				}
 				paths = append(paths, p)
 			}
-			l, err := mp4.ConcatAt(paths, starts)
+			l, err := mp4.ConcatSubs(paths, starts, words.Subs)
 			if err != nil {
 				continue
 			}
 			size := l.Size
 			dir.Files = append(dir.Files, &exfatgen.File{Name: cam + ".mp4", Size: size, Mod: start,
-				ReadAt: func(p []byte, off int64) (int, error) { return longs.readAt(paths, starts, size, p, off) }})
+				ReadAt: func(p []byte, off int64) (int, error) { return longs.readAt(paths, starts, words.Subs, size, p, off) }})
 		}
 		extras := g.Others
 		if g.Thumb != "" {
@@ -171,6 +178,15 @@ func Tree(ix *archive.Index, lang string, longs *Longs, progress func(done, tota
 		progress(len(groups), len(groups))
 	}
 	return root, files, nil
+}
+
+// subtitleWords are the subtitles' words with speed in unit, "kmh" or
+// "mph"; anything else is km/h.
+func subtitleWords(w mp4.Words, unit string) mp4.Words {
+	if unit == "mph" {
+		w.Unit, w.Factor = "mph", 2.23694
+	}
+	return w
 }
 
 // groupTime is when a group starts, in the car's local time as the file

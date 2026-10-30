@@ -49,7 +49,7 @@ func (c *computer) set(fn func(*computerStatus)) {
 
 // ComputerMode implements web.Backend: it starts building the drive and
 // returns; the status shows the progress.
-func (d *daemon) ComputerMode(on bool, lang string) error {
+func (d *daemon) ComputerMode(on bool, lang, unit string) error {
 	if !on {
 		return d.carMode()
 	}
@@ -67,7 +67,7 @@ func (d *daemon) ComputerMode(on bool, lang string) error {
 	c.mu.Unlock()
 	go func() {
 		defer d.repairing.Store(false)
-		if err := d.buildComputer(lang); err != nil {
+		if err := d.buildComputer(lang, unit); err != nil {
 			d.log.Error("computer mode", "err", err)
 			c.set(func(s *computerStatus) { *s = computerStatus{State: "off", Error: err.Error()} })
 			d.space.Hold.Store(false)
@@ -76,7 +76,7 @@ func (d *daemon) ComputerMode(on bool, lang string) error {
 	return nil
 }
 
-func (d *daemon) buildComputer(lang string) (err error) {
+func (d *daemon) buildComputer(lang, unit string) (err error) {
 	c := &d.computer
 	// Nothing may disappear while the computer reads.
 	d.space.Hold.Store(true)
@@ -86,7 +86,7 @@ func (d *daemon) buildComputer(lang string) (err error) {
 			longs.Close() // the recordings it opened
 		}
 	}()
-	root, files, err := usbview.Tree(d.index, lang, longs, func(done, total int) {
+	root, files, err := usbview.Tree(d.index, lang, unit, longs, func(done, total int) {
 		c.set(func(s *computerStatus) { s.Done, s.Total = done, total })
 	})
 	if err != nil {

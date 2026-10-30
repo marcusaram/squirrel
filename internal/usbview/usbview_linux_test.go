@@ -29,7 +29,7 @@ func TestDriveOverNBD(t *testing.T) {
 	ix.Load(slog.New(slog.NewTextHandler(io.Discard, nil)))
 	longs := &Longs{}
 	defer longs.Close()
-	tree, files, err := Tree(ix, "nl", longs, nil)
+	tree, files, err := Tree(ix, "nl", "kmh", longs, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

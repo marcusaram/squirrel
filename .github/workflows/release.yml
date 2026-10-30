@@ -103,6 +103,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # A release made by hand on GitHub (which also makes the tag) gets
+          # the files; its title, notes and pre-release mark stay as they are.
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" out/* --repo "$GITHUB_REPOSITORY" --clobber
+            exit 0
+          fi
           # A tag with a suffix (v1.2.0-rc1) is a pre-release.
           pre=()
           case "$GITHUB_REF_NAME" in *-*) pre=(--prerelease) ;; esac

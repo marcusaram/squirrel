@@ -253,7 +253,7 @@ git tag v0.16.0
 git push origin v0.16.0
 ```
 
-The release workflow then builds squirreld for every board, Squirrel Maker as a Mac app and as a command line program (with the packages a new card needs), and publishes them with their SHA-256 checksums as a GitHub release. A tag with a suffix, such as `v0.16.0-rc1`, becomes a pre-release.
+The release workflow then builds squirreld for every board, Squirrel Maker for macOS and Windows (with the packages a new card needs), and publishes them with their SHA-256 checksums as a GitHub release. A tag with a suffix, such as `v0.16.0-rc1`, becomes a pre-release. A release made by hand on GitHub also makes the tag; the workflow then adds the files to it and leaves its title, notes and pre-release mark alone.
 
 Dependabot proposes newer Go modules and GitHub Actions once a week, as a pull request that CI tests.
 

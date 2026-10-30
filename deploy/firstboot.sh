@@ -39,9 +39,10 @@ for l in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/blue:status; d
 done
 led() {
 	[ -n "$LED" ] || return 0
-	echo timer > "$LED/trigger"
-	echo "$1" > "$LED/delay_on"
-	echo "$2" > "$LED/delay_off"
+	# Armbian has the timer trigger as a module. The LED never stops the
+	# start: without the trigger it keeps what it had.
+	grep -qw timer "$LED/trigger" || modprobe ledtrig-timer 2> /dev/null || true
+	{ echo timer > "$LED/trigger" && echo "$1" > "$LED/delay_on" && echo "$2" > "$LED/delay_off"; } 2> /dev/null || true
 }
 led 120 120
 on_exit() {

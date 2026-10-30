@@ -63,3 +63,27 @@ func TestPatterns(t *testing.T) {
 	var none *LED
 	none.Set(Problem) // a Pi without LED must not crash
 }
+
+// Armbian has the timer trigger as a module: loaded on demand, and the LED
+// is left alone when that fails.
+func TestTimerModule(t *testing.T) {
+	sys := t.TempDir()
+	dir := filepath.Join(sys, "class/leds/blue:status")
+	os.MkdirAll(dir, 0o755)
+	os.WriteFile(filepath.Join(dir, "trigger"), []byte("none [heartbeat] pattern\n"), 0o644)
+	read := func(n string) string { b, _ := os.ReadFile(filepath.Join(dir, n)); return string(b) }
+	l := Find(sys)
+	var loaded []string
+	l.load = func(m string) error { loaded = append(loaded, m); return os.ErrNotExist }
+	l.Set(Busy)
+	if read("trigger") != "none [heartbeat] pattern\n" || len(loaded) != 1 || loaded[0] != "ledtrig-timer" {
+		t.Errorf("busy without the timer module: %q, loaded %q", read("trigger"), loaded)
+	}
+	l.load = func(m string) error {
+		return os.WriteFile(filepath.Join(dir, "trigger"), []byte("none [heartbeat] pattern timer\n"), 0o644)
+	}
+	l.Set(Problem)
+	if read("trigger") != "timer\n" || read("delay_on") != "40\n" {
+		t.Errorf("problem with the timer module: %q %q", read("trigger"), read("delay_on"))
+	}
+}

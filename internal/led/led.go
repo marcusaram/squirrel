@@ -23,7 +23,7 @@ const (
 
 type LED struct {
 	dir string
-	// load loads a kernel module (the pattern trigger); replaced in tests.
+	// load loads a kernel module (a trigger); replaced in tests.
 	load func(module string) error
 
 	mu      sync.Mutex
@@ -51,6 +51,9 @@ func (l *LED) write(name, value string) {
 }
 
 func (l *LED) timer(on, off string) {
+	if !l.trigger("timer") {
+		return
+	}
 	l.write("trigger", "timer")
 	l.write("delay_on", on)
 	l.write("delay_off", off)
@@ -115,13 +118,20 @@ func (l *LED) Load(avg float64) {
 	l.avg = avg
 }
 
-// heartbeat sets the heartbeat through the kernel's pattern trigger,
-// loading it when needed; false when the kernel has none.
+// trigger tells whether the kernel has a trigger, loading its module when
+// needed: Armbian has timer and pattern as modules.
+func (l *LED) trigger(name string) bool {
+	if strings.Contains(l.read("trigger"), name) {
+		return true
+	}
+	return l.load != nil && l.load("ledtrig-"+name) == nil && strings.Contains(l.read("trigger"), name)
+}
+
+// heartbeat sets the heartbeat through the kernel's pattern trigger;
+// false when the kernel has none.
 func (l *LED) heartbeat() bool {
-	if !strings.Contains(l.read("trigger"), "pattern") {
-		if l.load == nil || l.load("ledtrig-pattern") != nil || !strings.Contains(l.read("trigger"), "pattern") {
-			return false
-		}
+	if !l.trigger("pattern") {
+		return false
 	}
 	max := 255
 	if n, err := strconv.Atoi(strings.TrimSpace(l.read("max_brightness"))); err == nil && n > 0 {

@@ -42,7 +42,7 @@ Tesla puts speed, pedals, steering and position into every frame from firmware 2
 Squirrel Maker is the app that makes the SD card, for macOS and Windows. Download it from the [releases](https://github.com/marcusaram/squirrel/releases), or build it yourself (see [Development](#development)):
 
 - **macOS:** `Squirrel-Maker-<version>.zip`, with the app inside. It is not signed with an Apple developer certificate: the first time, macOS says it cannot check the developer. Open **System Settings → Privacy & Security** and choose **Open Anyway** below the message, or right-click the app and choose **Open**.
-- **Windows:** `Squirrel-Maker-<version>-windows.zip`. Unpack it and start `Squirrel Maker.exe`. It asks for administrator rights, which writing a card needs. It is not signed either: if Windows says it protected your PC, choose **More info** and then **Run anyway**. The app uses Microsoft Edge WebView2, which Windows 10 and 11 normally have.
+- **Windows:** `Squirrel-Maker-<version>-windows.zip`. Unpack it and start `Squirrel Maker.exe`. It asks for administrator rights, which writing a card needs. It is not signed either: if Windows says it protected your PC, choose **More info** and then **Run anyway**. The app uses Microsoft Edge WebView2, which Windows 10 and 11 normally have. If the app does not start, install the [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) from Microsoft, or use `squirrel-maker.exe` instead, which shows the same steps in your browser (see below).
 
 Squirrel Maker also runs from the command line (`squirrel-maker`, on Windows `squirrel-maker.exe` from a terminal opened as administrator), with the same steps in your browser.
 

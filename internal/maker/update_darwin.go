@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"io/fs"
-	"path/filepath"
 )
 
 // partitions returns the partitions of a disk and what diskutil says they
@@ -84,8 +83,8 @@ func InspectCard(ctx context.Context, id string) (CardInfo, error) {
 }
 
 // UpdateCard puts the Squirrel of this app on a card that already holds
-// it. all is the whole payload; tools holds debugfs and e2fsck.
-func UpdateCard(ctx context.Context, id string, all fs.FS, tools func() (string, error), report Progress) (CardInfo, error) {
+// it. all is the whole payload.
+func UpdateCard(ctx context.Context, id string, all fs.FS, report Progress) (CardInfo, error) {
 	d, err := checkDisk(ctx, id)
 	if err != nil {
 		return CardInfo{}, err
@@ -95,10 +94,6 @@ func UpdateCard(ctx context.Context, id string, all fs.FS, tools func() (string,
 		return CardInfo{}, err
 	}
 	if isArmbianCard(contents) {
-		dir, err := tools()
-		if err != nil {
-			return CardInfo{}, err
-		}
 		report("Preparing the SD card", -1)
 		if _, err := command(ctx, "diskutil", "unmountDisk", "/dev/"+id); err != nil {
 			return CardInfo{}, err
@@ -109,11 +104,14 @@ func UpdateCard(ctx context.Context, id string, all fs.FS, tools func() (string,
 			return CardInfo{}, err
 		}
 		defer dev.Close()
-		dfs := debugfs{bin: filepath.Join(dir, "debugfs"), e2fsck: filepath.Join(dir, "e2fsck"), dev: dev}
-		if err := updateArmbian(ctx, dfs, all, report); err != nil {
+		r, err := openRoot(dev)
+		if err != nil {
 			return CardInfo{}, err
 		}
-		info, err := inspectArmbian(ctx, dfs)
+		if err := updateArmbian(r, all, report); err != nil {
+			return CardInfo{}, err
+		}
+		info, err := inspectArmbian(r)
 		info.Disk = d
 		dev.Close()
 		report("Ejecting the card", -1)

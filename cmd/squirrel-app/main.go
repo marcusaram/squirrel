@@ -1,8 +1,10 @@
-//go:build darwin
+//go:build darwin || windows
 
-// Command squirrel-app is Squirrel Maker as a Mac app: its own window,
-// Dock icon and menu, built with Wails. The page and everything behind it
-// are the same as the browser version's (internal/makerui).
+// Command squirrel-app is Squirrel Maker as an app for macOS and Windows:
+// its own window, icon and menu, built with Wails. The page and everything
+// behind it are the same as the browser version's (internal/makerui). On
+// Windows it asks for administrator rights when it starts: writing a card
+// needs them.
 package main
 
 import (
@@ -20,6 +22,7 @@ var version = "dev"
 var icon []byte
 
 func main() {
+	elevate()
 	var app *application.App
 	srv, err := makerui.New(makerui.Options{
 		Version: version,

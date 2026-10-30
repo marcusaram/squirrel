@@ -53,7 +53,7 @@
         <label class="field"><span data-t>User</span><input name="user" autocomplete="off"></label>
       </div>
       <label class="field"><span data-t>Password</span><span class="pwbox"><input name="password" type="password" autocomplete="new-password"><button type="button" class="link show" data-t>Show</button></span><span class="help" data-t>May be empty if you use an SSH key.</span></label>
-      <label class="field"><span data-t>SSH key</span><textarea name="ssh_key" rows="3" spellcheck="false"></textarea><span class="help" data-t>This Mac's public key is already filled in.</span></label>
+      <label class="field"><span data-t>SSH key</span><textarea name="ssh_key" rows="3" spellcheck="false"></textarea><span class="help" data-t>This computer's public key is already filled in.</span></label>
       <label class="field narrow"><span data-t>Time zone</span><input name="timezone" autocomplete="off"></label>
     </section>
 
@@ -94,7 +94,7 @@
 
   <section class="step" id="writestep" data-name="SD card">
     <h2 data-t>Put it on the SD card</h2>
-    <p class="hint" data-t>Insert the card in your Mac. Everything on it is erased. The car writes all the time, so the card matters most: take an A2 or V30 card of 32 GB or more, or one sold for dashcams (High Endurance).</p>
+    <p class="hint" data-t>Insert the card in your computer. Everything on it is erased. The car writes all the time, so the card matters most: take an A2 or V30 card of 32 GB or more, or one sold for dashcams (High Endurance).</p>
     <div id="disks" class="disks"></div>
     <div class="row">
       <button type="button" class="btn primary big" id="write" disabled data-t>Write to card</button>
@@ -110,7 +110,7 @@
       <li><span data-t><b>Wait a moment.</b> The first start takes a few minutes. The LED blinks fast while the Pi is busy.</span></li>
       <li><span><b data-t>Open it.</b> <span data-t>Go to</span> <b id="url">http://squirrel.local/</b><span data-t>, or join the wifi <b>Squirrel</b> if the Pi does not find your network.</span></span></li>
     </ol>
-    <p class="hint" data-t>Not working? Put the card in your Mac: <code>squirrel/firstboot.log</code> tells where it stopped.</p>
+    <p class="hint" data-t>Not working? Put the card in your computer: <code>squirrel/firstboot.log</code> tells where it stopped.</p>
     <button type="button" class="btn" id="another" data-t>Make another card</button>
   </section>
 

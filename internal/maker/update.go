@@ -1,13 +1,11 @@
 package maker
 
 import (
-	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 )
@@ -163,9 +161,9 @@ func updatePiBoot(dir string, all fs.FS) error {
 // armbianDirs are where Squirrel lives on an Armbian card, newest first.
 var armbianDirs = []string{armbianDir, "/boot/teslausb"}
 
-func armbianFolder(ctx context.Context, d debugfs) (string, error) {
+func armbianFolder(r *root) (string, error) {
 	for _, dir := range armbianDirs {
-		if d.exists(ctx, dir+"/firstboot.sh") {
+		if r.exists(dir + "/firstboot.sh") {
 			return dir, nil
 		}
 	}
@@ -173,52 +171,45 @@ func armbianFolder(ctx context.Context, d debugfs) (string, error) {
 }
 
 // inspectArmbian looks at an Armbian card's root.
-func inspectArmbian(ctx context.Context, d debugfs) (CardInfo, error) {
-	release, err := d.read(ctx, "/etc/armbian-release")
+func inspectArmbian(r *root) (CardInfo, error) {
+	release, err := r.read("/etc/armbian-release")
 	if err != nil || !strings.Contains(string(release), "BOARD=rockpi-4cplus") {
 		return CardInfo{}, errors.New("this does not look like Armbian for the ROCK 4C+")
 	}
-	dir, err := armbianFolder(ctx, d)
+	dir, err := armbianFolder(r)
 	if err != nil {
 		return CardInfo{}, err
 	}
-	v, _ := d.read(ctx, dir+"/version")
-	return CardInfo{Board: "rock4cplus", Version: strings.TrimSpace(string(v)), Pending: !d.exists(ctx, dir+"/done")}, nil
+	v, _ := r.read(dir + "/version")
+	return CardInfo{Board: "rock4cplus", Version: strings.TrimSpace(string(v)), Pending: !r.exists(dir + "/done")}, nil
 }
 
 // updateArmbian puts the new Squirrel on an Armbian card's root.
-func updateArmbian(ctx context.Context, d debugfs, all fs.FS, report Progress) error {
-	if _, err := inspectArmbian(ctx, d); err != nil {
+func updateArmbian(r *root, all fs.FS, report Progress) error {
+	if _, err := inspectArmbian(r); err != nil {
 		return err
 	}
-	dir, err := armbianFolder(ctx, d)
+	dir, err := armbianFolder(r)
 	if err != nil {
 		return err
 	}
-	armbianDir := dir
 	current := dir == armbianDirs[0]
-	if out, err := d.tool(ctx, d.e2fsck, "-fn"); err != nil {
-		return fmt.Errorf("the card's file system has errors; not changing it: %s", lastLine(out))
-	}
 	files, err := armbianProgramIn(all, dir, current)
 	if err != nil {
 		return err
 	}
-	remove := []string{armbianDir + "/done"}
+	remove := []string{dir + "/done"}
 	for _, f := range legacyOld {
-		remove = append(remove, armbianDir+"/"+f)
+		remove = append(remove, dir+"/"+f)
 	}
-	out, _ := d.run(ctx, "ls -p "+armbianDir+"/debs")
-	for _, line := range strings.Split(string(out), "\n") {
-		// ls -p prints /inode/mode/uid/gid/name/size/.
-		f := strings.Split(line, "/")
-		if len(f) > 5 && strings.HasSuffix(f[5], ".deb") {
-			p := armbianDir + "/debs/" + path.Base(f[5])
-			if _, ok := files[p]; !ok {
-				remove = append(remove, p)
-			}
+	// Packages of the old version that the new one does not bring.
+	old, _ := r.fs.ReadDir(dir + "/debs")
+	for _, e := range old {
+		p := dir + "/debs/" + e.Name
+		if _, ok := files[p]; !ok && strings.HasSuffix(e.Name, ".deb") && !e.IsDir() {
+			remove = append(remove, p)
 		}
 	}
 	report("Updating the card", -1)
-	return d.put(ctx, files, remove, []string{armbianDir + "/debs"}, current, report)
+	return r.put(files, remove, []string{dir + "/debs"}, current, report)
 }

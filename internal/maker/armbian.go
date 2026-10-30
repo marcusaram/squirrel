@@ -8,17 +8,17 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path"
-	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/marcusaram/squirrel/internal/ext4"
 )
 
 // Armbian has no FAT partition: everything, /boot included, is on one
-// ext4 root. The maker puts its files there with debugfs (from e2fsprogs,
-// built for macOS and carried in the app), which edits the file system
-// without mounting it, and checks the result with e2fsck.
+// ext4 root. The maker puts its files there with the ext4 package, which
+// changes the file system without mounting it, on macOS and Windows
+// alike.
 //
 // What goes on the card:
 //   - /boot/squirrel: squirreld, the scripts, the packages Armbian minimal
@@ -193,7 +193,10 @@ var armbianRemove = []string{
 	"/etc/systemd/system/serial-getty@.service.d/override.conf",
 }
 
-const firstbootWants = "/etc/systemd/system/multi-user.target.wants/squirrel-firstboot.service"
+const (
+	firstbootUnit  = "/etc/systemd/system/squirrel-firstboot.service"
+	firstbootWants = "/etc/systemd/system/multi-user.target.wants/squirrel-firstboot.service"
+)
 
 // lockRoot locks root's password (1234 on Armbian) in /etc/shadow.
 func lockRoot(shadow []byte) ([]byte, error) {
@@ -211,64 +214,37 @@ func lockRoot(shadow []byte) ([]byte, error) {
 	return nil, errors.New("no root entry in /etc/shadow")
 }
 
-type debugfs struct {
-	bin, e2fsck, image string
-	// dev, when set, is an opened card (from authopen); the tools reach
-	// it as /dev/fd/3, as they may not open the disk themselves.
-	dev *os.File
+// root is Armbian's ext4 root, on an image or a card, changed by the ext4
+// package without mounting it.
+type root struct {
+	dev ext4.Device
+	fs  *ext4.FS
 }
 
-func (d debugfs) target() string {
-	if d.dev != nil {
-		return fmt.Sprintf("/dev/fd/3?offset=%d", armbianRootStart)
-	}
-	return fmt.Sprintf("%s?offset=%d", d.image, armbianRootStart)
-}
-
-// tool runs debugfs or e2fsck on the image or card.
-func (d debugfs) tool(ctx context.Context, bin string, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, bin, append(args, d.target())...)
-	if d.dev != nil {
-		cmd.ExtraFiles = []*os.File{d.dev}
-	}
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return out, fmt.Errorf("%s: %v: %s", filepath.Base(bin), err, bytes.TrimSpace(out))
-	}
-	return out, nil
-}
-
-func (d debugfs) run(ctx context.Context, cmd string) ([]byte, error) {
-	return d.tool(ctx, d.bin, "-R", cmd)
-}
-
-func (d debugfs) exists(ctx context.Context, p string) bool {
-	out, err := d.run(ctx, "stat "+p)
-	return err == nil && bytes.Contains(out, []byte("Inode:"))
-}
-
-// read returns a file from the image, or an error when it does not exist.
-func (d debugfs) read(ctx context.Context, p string) ([]byte, error) {
-	tmp, err := os.CreateTemp("", "squirrel-maker-*")
+// openRoot opens the root and refuses one that is not clean or uses ext4
+// features the ext4 package does not handle.
+func openRoot(dev ext4.Device) (*root, error) {
+	f, err := ext4.Open(dev, armbianRootStart)
 	if err != nil {
 		return nil, err
 	}
-	tmp.Close()
-	defer os.Remove(tmp.Name())
-	os.Remove(tmp.Name())
-	if _, err := d.run(ctx, "dump "+p+" "+tmp.Name()); err != nil {
-		return nil, err
+	if err := f.Clean(); err != nil {
+		return nil, fmt.Errorf("the card's file system cannot be changed now: %w", err)
 	}
-	data, err := os.ReadFile(tmp.Name())
-	if err != nil {
-		return nil, fmt.Errorf("%s is not in the image", p)
-	}
-	return data, nil
+	return &root{dev: dev, fs: f}, nil
 }
+
+func (r *root) exists(p string) bool {
+	_, err := r.fs.Stat(p)
+	return err == nil
+}
+
+// read returns a file from the root, or an error when it does not exist.
+func (r *root) read(p string) ([]byte, error) { return r.fs.ReadFile(p) }
 
 // CustomizeArmbian puts the settings and payload on the root of an
-// uncompressed Armbian image. tools holds debugfs and e2fsck.
-func CustomizeArmbian(ctx context.Context, image string, s Settings, payload fs.FS, tools string, report Progress) error {
+// uncompressed Armbian image.
+func CustomizeArmbian(ctx context.Context, image string, s Settings, payload fs.FS, report Progress) error {
 	if err := CheckArmbianLayout(image); err != nil {
 		return err
 	}
@@ -276,17 +252,21 @@ func CustomizeArmbian(ctx context.Context, image string, s Settings, payload fs.
 	if err != nil {
 		return err
 	}
-	d := debugfs{bin: filepath.Join(tools, "debugfs"), e2fsck: filepath.Join(tools, "e2fsck"), image: image}
 	report("Adapting the image", -1)
-
-	if out, err := d.tool(ctx, d.e2fsck, "-fn"); err != nil {
-		return fmt.Errorf("the image's file system is not clean before changing it: %s", lastLine(out))
+	img, err := os.OpenFile(image, os.O_RDWR, 0)
+	if err != nil {
+		return err
 	}
-	release, err := d.read(ctx, "/etc/armbian-release")
+	defer img.Close()
+	r, err := openRoot(img)
+	if err != nil {
+		return err
+	}
+	release, err := r.read("/etc/armbian-release")
 	if err != nil || !bytes.Contains(release, []byte("BOARD=rockpi-4cplus")) {
 		return errors.New("this does not look like Armbian for the ROCK 4C+")
 	}
-	shadow, err := d.read(ctx, "/etc/shadow")
+	shadow, err := r.read("/etc/shadow")
 	if err != nil {
 		return err
 	}
@@ -295,63 +275,56 @@ func CustomizeArmbian(ctx context.Context, image string, s Settings, payload fs.
 	}
 	files["/etc/shadow"] = ext4File{data: shadow, mode: 0o640, gid: 42} // group shadow
 
-	return d.put(ctx, files, armbianRemove, []string{armbianDir, armbianDir + "/debs"}, true, report)
+	if err := r.put(files, armbianRemove, []string{armbianDir, armbianDir + "/debs"}, true, report); err != nil {
+		return err
+	}
+	return img.Sync()
 }
 
 // put writes files onto the root, removes the paths in remove (missing
-// ones are fine), and checks the result with e2fsck and by reading
-// everything back. dirs are created when missing.
-func (d debugfs) put(ctx context.Context, files map[string]ext4File, remove, dirs []string, enable bool, report Progress) error {
-	staging, err := os.MkdirTemp("", "squirrel-maker-*")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(staging)
-	var script strings.Builder
-	// debugfs's mkdir on an existing directory leaves a stray one behind.
+// ones are fine), and checks the result by opening the root afresh and
+// reading everything back. dirs are created when missing.
+func (r *root) put(files map[string]ext4File, remove, dirs []string, enable bool, report Progress) error {
 	for _, dir := range dirs {
-		if !d.exists(ctx, dir) {
-			script.WriteString("mkdir " + dir + "\n")
+		if err := r.fs.Mkdir(dir, 0o755); err != nil {
+			return err
 		}
 	}
 	for _, p := range remove {
-		script.WriteString("rm " + p + "\n")
+		if err := r.fs.Remove(p); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("removing %s: %w", p, err)
+		}
 	}
 	names := make([]string, 0, len(files))
 	for p := range files {
 		names = append(names, p)
 	}
 	sort.Strings(names)
-	for i, p := range names {
-		if strings.ContainsAny(p, " \t\n\"") {
-			return fmt.Errorf("unexpected path %q", p)
+	for _, p := range names {
+		if err := r.fs.WriteFile(p, files[p].data, files[p].mode.Perm(), 0, uint32(files[p].gid)); err != nil {
+			return fmt.Errorf("writing %s: %w", p, err)
 		}
-		src := filepath.Join(staging, fmt.Sprint(i))
-		if err := os.WriteFile(src, files[p].data, 0o600); err != nil {
-			return err
-		}
-		fmt.Fprintf(&script, "rm %s\nwrite %s %s\nsif %s mode 0100%o\nsif %s uid 0\nsif %s gid %d\n",
-			p, src, p, p, files[p].mode.Perm(), p, p, files[p].gid)
 	}
 	if enable {
-		fmt.Fprintf(&script, "rm %s\nsymlink %s /etc/systemd/system/squirrel-firstboot.service\n", firstbootWants, firstbootWants)
+		if err := r.fs.Remove(firstbootWants); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+		if err := r.fs.Symlink(firstbootUnit, firstbootWants); err != nil {
+			return err
+		}
 	}
-	scriptPath := filepath.Join(staging, "script")
-	if err := os.WriteFile(scriptPath, []byte(script.String()), 0o600); err != nil {
-		return err
-	}
-	// debugfs carries on after a failing command (rm of a file that is not
-	// there is fine); what matters is checked below.
-	if _, err := d.tool(ctx, d.bin, "-w", "-f", scriptPath); err != nil {
+	if err := r.fs.Flush(); err != nil {
 		return err
 	}
 
+	// Read back from the device, not from what is still in memory.
 	report("Checking the image", -1)
-	if out, err := d.tool(ctx, d.e2fsck, "-fn"); err != nil {
-		return fmt.Errorf("the image's file system has errors after changing it: %s", lastLine(out))
+	check, err := openRoot(r.dev)
+	if err != nil {
+		return fmt.Errorf("checking: %w", err)
 	}
 	for _, p := range names {
-		got, err := d.read(ctx, p)
+		got, err := check.read(p)
 		if err != nil {
 			return fmt.Errorf("checking %s: %w", p, err)
 		}
@@ -360,20 +333,15 @@ func (d debugfs) put(ctx context.Context, files map[string]ext4File, remove, dir
 		}
 	}
 	for _, p := range remove {
-		if _, err := d.read(ctx, p); err == nil {
+		if check.exists(p) {
 			return fmt.Errorf("checking: %s is still there", p)
 		}
 	}
 	if !enable {
 		return nil
 	}
-	if out, err := d.run(ctx, "stat "+firstbootWants); err != nil || !bytes.Contains(out, []byte("Type: symlink")) {
+	if target, err := check.read(firstbootWants); err != nil || string(target) != firstbootUnit {
 		return errors.New("checking: squirrel-firstboot.service is not enabled")
 	}
 	return nil
-}
-
-func lastLine(out []byte) string {
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	return lines[len(lines)-1]
 }

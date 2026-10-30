@@ -61,6 +61,14 @@ type Volume struct {
 	bitmap       int64  // absolute offset of the exFAT allocation bitmap, 0 if unknown
 
 	readDir func(dir Entry) ([]Entry, error)
+
+	// For changing a FAT32 volume (OpenRW).
+	w        io.WriterAt
+	fat      []byte // the active FAT, read once
+	fatStart int64  // the first FAT copy
+	fatSize  int64  // bytes per copy
+	numFATs  int64
+	fsInfo   int64 // the FSInfo sector, 0 when there is none
 }
 
 var (

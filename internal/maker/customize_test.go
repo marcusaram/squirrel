@@ -2,8 +2,10 @@ package maker
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -66,4 +68,15 @@ func TestCustomizeRealImage(t *testing.T) {
 		}
 		return nil
 	})
+	// fsck.fat, where it is installed, judges the boot partition.
+	if _, err := exec.LookPath("fsck.fat"); err == nil {
+		part := filepath.Join(t.TempDir(), "boot.img")
+		if out, err := exec.Command("dd", "if="+img, "of="+part, fmt.Sprintf("bs=%d", 512), fmt.Sprintf("skip=%d", v.Offset/512),
+			fmt.Sprintf("count=%d", 1024*1024)).CombinedOutput(); err != nil {
+			t.Fatalf("dd: %v %s", err, out)
+		}
+		if out, err := exec.Command("fsck.fat", "-n", part).CombinedOutput(); err != nil {
+			t.Errorf("fsck.fat: %v\n%s", err, out)
+		}
+	}
 }

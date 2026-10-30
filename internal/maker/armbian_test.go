@@ -2,6 +2,7 @@ package maker
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -51,16 +52,28 @@ func TestArmbianSetupInBash(t *testing.T) {
 	}
 }
 
+// fsckRoot lets e2fsck, where it is installed, judge the image's root
+// after the ext4 package changed it.
+func fsckRoot(t *testing.T, img string) {
+	t.Helper()
+	if _, err := exec.LookPath("e2fsck"); err != nil {
+		return
+	}
+	target := fmt.Sprintf("%s?offset=%d", img, armbianRootStart)
+	if out, err := exec.Command("e2fsck", "-fn", target).CombinedOutput(); err != nil {
+		t.Fatalf("e2fsck: %v\n%s", err, out)
+	}
+}
+
 // TestCustomizeRealArmbian adapts the real Armbian image with the real
 // payload. Opt-in: ARMBIAN_IMG=path/to/uncompressed.img, and `make
-// payload` must have run (debugfs, e2fsck and the packages).
+// payload` must have run (the packages).
 func TestCustomizeRealArmbian(t *testing.T) {
 	src := os.Getenv("ARMBIAN_IMG")
 	if src == "" {
 		t.Skip("set ARMBIAN_IMG to the uncompressed Armbian image")
 	}
 	payload := os.DirFS("../makerui/payload")
-	tools := "../makerui/payload/mac"
 	img := filepath.Join(t.TempDir(), "a.img")
 	if out, err := exec.Command("cp", "-c", src, img).CombinedOutput(); err != nil {
 		if out, err := exec.Command("cp", src, img).CombinedOutput(); err != nil {
@@ -70,17 +83,27 @@ func TestCustomizeRealArmbian(t *testing.T) {
 	}
 	s := testSettings()
 	s.Board = "rock4cplus"
-	err := CustomizeArmbian(context.Background(), img, s, payload, tools, func(string, float64) {})
+	err := CustomizeArmbian(context.Background(), img, s, payload, func(string, float64) {})
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := debugfs{bin: filepath.Join(tools, "debugfs"), image: img}
-	shadow, _ := d.read(context.Background(), "/etc/shadow")
+	fsckRoot(t, img)
+	f, _ := os.Open(img)
+	r, err := openRoot(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shadow, _ := r.read("/etc/shadow")
 	if !strings.HasPrefix(string(shadow), "root:!") {
 		t.Errorf("root not locked: %.40s", shadow)
 	}
+	if st, err := r.fs.Stat("/etc/shadow"); err != nil || st.GID != 42 || st.Mode.Perm() != 0o640 {
+		t.Errorf("shadow: %+v %v", st, err)
+	}
+	f.Close()
 	// Doing it again (a second build from the same image) must also work.
-	if err := CustomizeArmbian(context.Background(), img, s, payload, tools, func(string, float64) {}); err != nil {
+	if err := CustomizeArmbian(context.Background(), img, s, payload, func(string, float64) {}); err != nil {
 		t.Fatalf("second run: %v", err)
 	}
+	fsckRoot(t, img)
 }

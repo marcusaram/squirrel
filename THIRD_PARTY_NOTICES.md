@@ -36,15 +36,11 @@ squirreld with your version. The library's source and license text:
 | [github.com/ulikunitz/xz](https://github.com/ulikunitz/xz) | BSD-3-Clause, © 2014-2022 Ulrich Kunitz |
 | [golang.org/x/sys](https://pkg.go.dev/golang.org/x/sys) | BSD-3-Clause, © 2009 The Go Authors |
 
-## Programs and packages the Mac app carries
+## Packages Squirrel Maker carries
 
-These are separate programs, put on the SD card or run as they are; they are
-not part of Squirrel and keep their own licenses.
+These are separate programs, put on the SD card as they are; they are not
+part of Squirrel and keep their own licenses.
 
-- **e2fsprogs 1.47.4** (`debugfs`, `e2fsck`, to write to the ext4 card of a
-  Radxa ROCK 4C+): GPL-2.0. Built unchanged from the release at
-  <https://mirrors.edge.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v1.47.4/>
-  (the `Makefile` checks its SHA-256). That tarball is the complete source.
 - **Debian packages** for a new card, put on it unchanged and installed at its
   first start: `xfsprogs`, `libinih1`, `liburcu8t64` and `python3-dbus` for
   Raspberry Pi OS (from Debian trixie for 64-bit, from Raspbian trixie for the

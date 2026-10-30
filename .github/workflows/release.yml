@@ -56,6 +56,15 @@ jobs:
   macos:
     needs: linux
     runs-on: macos-latest
+    env:
+      # A Developer ID Application certificate (.p12, base64) and an App
+      # Store Connect API key (.p8, base64) for notarization. Without them
+      # the Mac downloads are signed ad hoc, as before.
+      MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+      MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+      APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+      APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+      APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -67,10 +76,33 @@ jobs:
           path: internal/makerui/payload
       - name: Version from the tag
         run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+      - name: Signing certificate
+        if: env.MACOS_CERTIFICATE != ''
+        run: |
+          # A keychain of its own, gone with the runner.
+          kc="$RUNNER_TEMP/signing.keychain-db"
+          pw=$(openssl rand -hex 16)
+          security create-keychain -p "$pw" "$kc"
+          security set-keychain-settings -lut 3600 "$kc"
+          security unlock-keychain -p "$pw" "$kc"
+          echo "$MACOS_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$kc" -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          rm "$RUNNER_TEMP/cert.p12"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$pw" "$kc" > /dev/null
+          security list-keychains -d user -s "$kc" $(security list-keychains -d user | tr -d '"')
+          id=$(security find-identity -v -p codesigning "$kc" | sed -n 's/.*"\(Developer ID Application: .*\)"/\1/p' | head -1)
+          [ -n "$id" ] || { echo "no Developer ID Application certificate in MACOS_CERTIFICATE"; exit 1; }
+          echo "MAC_SIGN=$id" >> "$GITHUB_ENV"
+          if [ -n "$APPLE_API_KEY" ]; then
+            echo "$APPLE_API_KEY" | base64 --decode > "$RUNNER_TEMP/notary.p8"
+            echo "NOTARY=--key $RUNNER_TEMP/notary.p8 --key-id $APPLE_API_KEY_ID --issuer $APPLE_API_ISSUER" >> "$GITHUB_ENV"
+          else
+            echo "::warning::APPLE_API_KEY is not set: signed, but not notarized"
+          fi
       - name: Squirrel Maker
         run: |
-          make app-bundle maker-bin VERSION="$VERSION"
-          cd dist && zip -q "squirrel-maker-$VERSION-macos.zip" squirrel-maker
+          [ -n "${MAC_SIGN:-}" ] || echo "::warning::MACOS_CERTIFICATE is not set: the Mac downloads are not signed"
+          make app-bundle maker-bin VERSION="$VERSION" MAC_SIGN="${MAC_SIGN:--}" NOTARY="${NOTARY:-}"
       - uses: actions/upload-artifact@v7
         with:
           name: maker

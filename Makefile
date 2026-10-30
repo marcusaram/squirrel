@@ -118,6 +118,20 @@ payload: dist/squirreld-linux-arm64 dist/squirreld-linux-armv6
 APP := dist/Squirrel Maker.app
 APPCGO := CGO_ENABLED=1 CGO_CFLAGS=-mmacosx-version-min=13.0 CGO_LDFLAGS=-mmacosx-version-min=13.0
 
+# Signing: by default ad hoc, which runs on this Mac but makes others warn.
+# For a release, MAC_SIGN is a Developer ID Application certificate in the
+# keychain and NOTARY the credentials for Apple's notary service (see
+# scripts/notarize.sh), e.g.
+#   make app MAC_SIGN="Developer ID Application: Name (TEAMID)" NOTARY="--keychain-profile squirrel"
+MAC_SIGN ?= -
+NOTARY ?=
+ifeq ($(MAC_SIGN),-)
+MAC_SIGNFLAGS :=
+else
+MAC_SIGNFLAGS := --options runtime --timestamp
+endif
+MAC_CODESIGN = codesign --force $(MAC_SIGNFLAGS) --sign "$(MAC_SIGN)"
+
 .PHONY: app app-bundle
 app: payload
 	$(MAKE) app-bundle
@@ -131,8 +145,13 @@ app-bundle:
 	sed 's/@VERSION@/$(VERSION)/' deploy/app/Info.plist > "$(APP)/Contents/Info.plist"
 	cp deploy/app/Squirrel.icns "$(APP)/Contents/Resources/"
 	cp LICENSE THIRD_PARTY_NOTICES.md "$(APP)/Contents/Resources/"
-	codesign --force --sign - "$(APP)"
-	cd dist && ditto -c -k --keepParent "Squirrel Maker.app" "Squirrel-Maker-$(VERSION).zip"
+	$(MAC_CODESIGN) "$(APP)"
+	cd dist && rm -f "Squirrel-Maker-$(VERSION).zip" && ditto -c -k --keepParent "Squirrel Maker.app" "Squirrel-Maker-$(VERSION).zip"
+ifneq ($(NOTARY),)
+	scripts/notarize.sh "dist/Squirrel-Maker-$(VERSION).zip" $(NOTARY)
+	xcrun stapler staple "$(APP)"
+	cd dist && rm -f "Squirrel-Maker-$(VERSION).zip" && ditto -c -k --keepParent "Squirrel Maker.app" "Squirrel-Maker-$(VERSION).zip"
+endif
 
 # The same maker on the command line, without cgo or Wails: it serves the
 # page on localhost and opens it in the browser. One binary for Apple
@@ -145,6 +164,11 @@ maker-bin:
 	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o dist/squirrel-maker-darwin-arm64 ./cmd/squirrel-maker
 	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o dist/squirrel-maker-darwin-amd64 ./cmd/squirrel-maker
 	lipo -create -output dist/squirrel-maker dist/squirrel-maker-darwin-arm64 dist/squirrel-maker-darwin-amd64
+	$(MAC_CODESIGN) --identifier io.github.marcusaram.squirrel.maker-cli dist/squirrel-maker
+	cd dist && rm -f "squirrel-maker-$(VERSION)-macos.zip" && zip -q "squirrel-maker-$(VERSION)-macos.zip" squirrel-maker
+ifneq ($(NOTARY),)
+	scripts/notarize.sh "dist/squirrel-maker-$(VERSION)-macos.zip" $(NOTARY)
+endif
 
 # Squirrel Maker for Windows (64-bit): the app (Wails, without cgo, so it
 # builds anywhere) and the command line version, in one zip. Each gets a

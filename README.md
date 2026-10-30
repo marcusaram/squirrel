@@ -41,7 +41,7 @@ Tesla puts speed, pedals, steering and position into every frame from firmware 2
 
 Squirrel Maker is the app that makes the SD card, for macOS and Windows. Download it from the [releases](https://github.com/marcusaram/squirrel/releases), or build it yourself (see [Development](#development)):
 
-- **macOS:** `Squirrel-Maker-<version>.zip`, with the app inside. It is not signed with an Apple developer certificate: the first time, macOS says it cannot check the developer. Open **System Settings → Privacy & Security** and choose **Open Anyway** below the message, or right-click the app and choose **Open**.
+- **macOS:** `Squirrel-Maker-<version>.zip`, with the app inside. Releases are signed with a Developer ID and notarized by Apple, so it opens like any other app. If macOS says it cannot check the developer (an older release, or one you built yourself), open **System Settings → Privacy & Security** and choose **Open Anyway** below the message, or right-click the app and choose **Open**.
 - **Windows:** `Squirrel-Maker-<version>-windows.zip`. Unpack it and start `Squirrel Maker.exe`. It asks for administrator rights, which writing a card needs. It is not signed either: if Windows says it protected your PC, choose **More info** and then **Run anyway**. The app uses Microsoft Edge WebView2, which Windows 10 and 11 normally have. If the app does not start, install the [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) from Microsoft, or use `squirrel-maker.exe` instead, which shows the same steps in your browser (see below).
 
 Squirrel Maker also runs from the command line (`squirrel-maker`, on Windows `squirrel-maker.exe` from a terminal opened as administrator), with the same steps in your browser.
@@ -254,6 +254,20 @@ git push origin v0.16.0
 ```
 
 The release workflow then builds squirreld for every board, Squirrel Maker for macOS and Windows (with the packages a new card needs), and publishes them with their SHA-256 checksums as a GitHub release. A tag with a suffix, such as `v0.16.0-rc1`, becomes a pre-release. A release made by hand on GitHub also makes the tag; the workflow then adds the files to it and leaves its title, notes and pre-release mark alone.
+
+#### Signing the Mac downloads
+
+The release workflow signs the Mac app and command line version with a Developer ID Application certificate and has Apple notarize them, when these repository secrets are set (**Settings → Secrets and variables → Actions**):
+
+| Secret | What |
+|---|---|
+| `MACOS_CERTIFICATE` | the Developer ID Application certificate with its private key, exported from Keychain Access as `.p12`, base64: `base64 -i cert.p12 \| pbcopy` |
+| `MACOS_CERTIFICATE_PASSWORD` | the password chosen for that `.p12` |
+| `APPLE_API_KEY` | an App Store Connect API key (**Users and Access → Integrations → App Store Connect API**, role Developer), the `.p8` file base64 |
+| `APPLE_API_KEY_ID` | that key's ID |
+| `APPLE_API_ISSUER` | the Issuer ID shown above the keys |
+
+Without them the downloads are signed ad hoc, and the workflow says so. Locally: `make app MAC_SIGN="Developer ID Application: Name (TEAMID)" NOTARY="--keychain-profile squirrel"`, after `xcrun notarytool store-credentials squirrel`.
 
 Dependabot proposes newer Go modules and GitHub Actions once a week, as a pull request that CI tests.
 

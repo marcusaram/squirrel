@@ -34,6 +34,7 @@ type Long struct {
 type Part struct {
 	Path     string
 	Off, Len int64
+	subs     *subs // a text part, made from Path's frames when read
 }
 
 type LongSeg struct {
@@ -406,6 +407,16 @@ const maxHold = 3.0
 // last frame until the next file starts keeps the long video in step with
 // the clock, and every camera with the others.
 func ConcatAt(files []string, starts []float64) (*Long, error) {
+	return concatLong(files, starts, nil)
+}
+
+// ConcatSubs is ConcatAt with subtitles of what the car was doing, in
+// words.
+func ConcatSubs(files []string, starts []float64, words Words) (*Long, error) {
+	return concatLong(files, starts, &words)
+}
+
+func concatLong(files []string, starts []float64, words *Words) (*Long, error) {
 	var tracks []*track
 	l := &Long{Segs: make([]LongSeg, len(files))}
 	var ts uint32
@@ -432,6 +443,13 @@ func ConcatAt(files []string, starts []float64) (*Long, error) {
 		t.holdLast(hold)
 	}
 	var at float64
+	var plans []*subPlan
+	size, lang := 0, ""
+	var drive *pedalScale
+	if words != nil {
+		size, lang = words.sampleSize(), words.Language
+		drive = &pedalScale{}
+	}
 	for i, t := range tracks {
 		if t == nil {
 			continue
@@ -439,6 +457,17 @@ func ConcatAt(files []string, starts []float64) (*Long, error) {
 		dur := float64(t.duration) / float64(t.timescale)
 		l.Segs[i] = LongSeg{Start: at, Dur: dur, OK: true}
 		at += dur
+		if words != nil {
+			p := t.plan()
+			if p == nil {
+				p = &subPlan{}
+			}
+			plans = append(plans, p)
+			// Each minute's text goes just before its frames.
+			sub := &subs{path: files[i], frames: p.frames, words: words, size: size, drive: drive}
+			drive.parts = append(drive.parts, sub)
+			l.Parts = append(l.Parts, Part{Path: files[i], Len: int64(p.n * size), subs: sub})
+		}
 		l.Parts = append(l.Parts, Part{Path: files[i], Off: t.dataStart, Len: t.dataEnd - t.dataStart})
 	}
 	var first *track
@@ -451,7 +480,14 @@ func ConcatAt(files []string, starts []float64) (*Long, error) {
 	if first == nil {
 		return nil, errors.New("mp4: none of the recordings can be read")
 	}
-	head := func(base uint64) []byte { return longHead(tracks, first, base) }
+	if drive != nil {
+		// Width and height are the last 8 bytes of every tkhd version.
+		font := byte(min(fontSize(binary.BigEndian.Uint32(first.tkhd[len(first.tkhd)-4:])>>16), 255))
+		for _, p := range drive.parts {
+			p.font = font
+		}
+	}
+	head := func(base uint64) []byte { return longHead(tracks, first, base, plans, size, lang) }
 	h := head(0)
 	h = head(uint64(len(h)))
 	l.Head = h
@@ -580,8 +616,10 @@ var identity = []byte{0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0
 
 // longHead is ftyp, moov and the header of the mdat holding the parts.
 // base is where the mdat payload starts, i.e. the length of the result,
-// which does not depend on base.
-func longHead(tracks []*track, first *track, base uint64) []byte {
+// which does not depend on base. plans, when given, are the text samples
+// (of size bytes each, in language lang) that come before each track's
+// frames.
+func longHead(tracks []*track, first *track, base uint64, plans []*subPlan, size int, lang string) []byte {
 	var (
 		entries [][]byte
 		stts    [][2]uint32
@@ -592,6 +630,8 @@ func longHead(tracks []*track, first *track, base uint64) []byte {
 		chunks  []uint64
 		dur     uint64
 		data    uint64
+		texts   []*subPlan
+		textOff []uint64
 	)
 	for _, t := range tracks {
 		if t != nil && t.stss != nil {
@@ -601,6 +641,15 @@ func longHead(tracks []*track, first *track, base uint64) []byte {
 	for _, t := range tracks {
 		if t == nil {
 			continue
+		}
+		if len(plans) > 0 {
+			p := plans[0]
+			plans = plans[1:]
+			if p.n > 0 {
+				texts = append(texts, p)
+				textOff = append(textOff, base+data)
+				data += uint64(p.n * size)
+			}
 		}
 		// Sample descriptions: shared where identical.
 		desc := make([]uint32, len(t.entries))
@@ -618,14 +667,7 @@ func longHead(tracks []*track, first *track, base uint64) []byte {
 		}
 		samples := uint32(len(sizes))
 		for _, e := range t.evenTimes() {
-			if e[0] == 0 {
-				continue
-			}
-			if n := len(stts); n > 0 && stts[n-1][1] == e[1] {
-				stts[n-1][0] += e[0]
-			} else {
-				stts = append(stts, e)
-			}
+			stts = addStts(stts, e[0], e[1])
 		}
 		switch {
 		case t.stss != nil:
@@ -678,11 +720,6 @@ func longHead(tracks []*track, first *track, base uint64) []byte {
 
 	var b []byte
 	stsd := full("stsd", 0, 0, append(be32(uint32(len(entries))), concat(entries)...))
-	b = nil
-	for _, e := range stts {
-		b = append(append(b, be32(e[0])...), be32(e[1])...)
-	}
-	sttsBox := full("stts", 0, 0, be32(uint32(len(stts))), b)
 	var stssBox []byte
 	if anySync {
 		b = nil
@@ -692,23 +729,13 @@ func longHead(tracks []*track, first *track, base uint64) []byte {
 		stssBox = full("stss", 0, 0, be32(uint32(len(stss))), b)
 	}
 	b = nil
-	for _, e := range stsc {
-		b = append(append(append(b, be32(e[0])...), be32(e[1])...), be32(e[2])...)
-	}
-	stscBox := full("stsc", 0, 0, be32(uint32(len(stsc))), b)
-	b = nil
 	for _, s := range sizes {
 		b = append(b, be32(s)...)
 	}
 	stszBox := full("stsz", 0, 0, be32(0), be32(uint32(len(sizes))), b)
-	b = nil
-	for _, c := range chunks {
-		b = append(b, be64(c)...)
-	}
-	co64 := full("co64", 0, 0, be32(uint32(len(chunks))), b)
 
 	ts := first.timescale
-	stbl := mk("stbl", stsd, sttsBox, stssBox, stscBox, stszBox, co64)
+	stbl := mk("stbl", stsd, sttsBox(stts), stssBox, stscBox(stsc), stszBox, co64Box(chunks))
 	minf := mk("minf", first.vmhd, first.dinf, stbl)
 	mdhd := full("mdhd", 1, 0, be64(0), be64(0), be32(ts), be64(dur), be16(0x55c4), be16(0))
 	mdia := mk("mdia", mdhd, first.hdlr, minf)
@@ -717,12 +744,55 @@ func longHead(tracks []*track, first *track, base uint64) []byte {
 	tkhd := full("tkhd", 1, 3, be64(0), be64(0), be32(1), be32(0), be64(dur), make([]byte, 8),
 		be16(0), be16(0), be16(0), be16(0), identity, wh)
 	trak := mk("trak", tkhd, mdia)
+	next := uint32(2)
+	var text []byte
+	if len(texts) > 0 {
+		text = textTrak(texts, textOff, size, lang, ts, dur, binary.BigEndian.Uint32(wh)>>16, binary.BigEndian.Uint32(wh[4:])>>16, first.dinf)
+		next = 3
+	}
 	mvhd := full("mvhd", 1, 0, be64(0), be64(0), be32(ts), be64(dur), be32(0x00010000), be16(0x0100),
-		make([]byte, 10), identity, make([]byte, 24), be32(2))
-	moov := mk("moov", mvhd, trak)
+		make([]byte, 10), identity, make([]byte, 24), be32(next))
+	moov := mk("moov", mvhd, trak, text)
 	ftyp := mk("ftyp", []byte("isom"), be32(0x200), []byte("isomiso2avc1mp41"))
 	mdat := append(append(be32(1), "mdat"...), be64(16+data)...)
 	return append(append(ftyp, moov...), mdat...)
+}
+
+// addStts adds n samples of delta d to a time table, joining them to the
+// last entry when it has the same delta.
+func addStts(stts [][2]uint32, n, d uint32) [][2]uint32 {
+	if n == 0 {
+		return stts
+	}
+	if k := len(stts); k > 0 && stts[k-1][1] == d {
+		stts[k-1][0] += n
+		return stts
+	}
+	return append(stts, [2]uint32{n, d})
+}
+
+func sttsBox(stts [][2]uint32) []byte {
+	var b []byte
+	for _, e := range stts {
+		b = append(append(b, be32(e[0])...), be32(e[1])...)
+	}
+	return full("stts", 0, 0, be32(uint32(len(stts))), b)
+}
+
+func stscBox(stsc [][3]uint32) []byte {
+	var b []byte
+	for _, e := range stsc {
+		b = append(append(append(b, be32(e[0])...), be32(e[1])...), be32(e[2])...)
+	}
+	return full("stsc", 0, 0, be32(uint32(len(stsc))), b)
+}
+
+func co64Box(chunks []uint64) []byte {
+	var b []byte
+	for _, c := range chunks {
+		b = append(b, be64(c)...)
+	}
+	return full("co64", 0, 0, be32(uint32(len(chunks))), b)
 }
 
 func concat(bs [][]byte) []byte {
@@ -739,10 +809,13 @@ type Reader struct {
 	pos   int64
 	files map[string]*os.File
 	ends  []int64 // end of each part in the long file
+	// The text of the part last read from, made when first read.
+	text     []byte
+	textPart int
 }
 
 func (l *Long) Open() *Reader {
-	r := &Reader{l: l, files: map[string]*os.File{}}
+	r := &Reader{l: l, files: map[string]*os.File{}, textPart: -1}
 	at := int64(len(l.Head))
 	for _, p := range l.Parts {
 		at += p.Len
@@ -787,6 +860,14 @@ func (r *Reader) Read(b []byte) (int, error) {
 	}
 	if rem := r.ends[i] - r.pos; int64(len(b)) > rem {
 		b = b[:rem]
+	}
+	if p.subs != nil {
+		if r.textPart != i {
+			r.text, r.textPart = p.subs.render(f), i
+		}
+		n := copy(b, r.text[within:])
+		r.pos += int64(n)
+		return n, nil
 	}
 	n, err := f.ReadAt(b, p.Off+within)
 	r.pos += int64(n)

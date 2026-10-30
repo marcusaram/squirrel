@@ -112,5 +112,10 @@ jobs:
           # A tag with a suffix (v1.2.0-rc1) is a pre-release.
           pre=()
           case "$GITHUB_REF_NAME" in *-*) pre=(--prerelease) ;; esac
-          gh release create "$GITHUB_REF_NAME" out/* --repo "$GITHUB_REPOSITORY" \
-            --title "Squirrel ${GITHUB_REF_NAME#v}" --generate-notes "${pre[@]}"
+          if ! gh release create "$GITHUB_REF_NAME" out/* --repo "$GITHUB_REPOSITORY" \
+            --title "Squirrel ${GITHUB_REF_NAME#v}" --generate-notes "${pre[@]}"; then
+            # Made meanwhile (another run, or by hand): fill that one. Any
+            # other failure stays a failure.
+            gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1 || exit 1
+            gh release upload "$GITHUB_REF_NAME" out/* --repo "$GITHUB_REPOSITORY" --clobber
+          fi

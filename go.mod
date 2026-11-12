@@ -6,7 +6,7 @@ require (
 	github.com/cloudsoda/go-smb2 v0.0.0-20260918041005-0c5d69b69701
 	github.com/ulikunitz/xz v0.5.17
 	github.com/wailsapp/wails/v3 v3.1.0
-	golang.org/x/sys v0.49.0
+	golang.org/x/sys v0.50.0
 )
 
 require (
